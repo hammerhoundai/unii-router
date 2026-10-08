@@ -45,7 +45,7 @@ To install from an existing checkout:
 
 ```sh
 git clone https://github.com/hammerhoundai/unii-router.git
-cd unii-chat-router
+cd unii-router
 ./install.sh
 ```
 

@@ -5,7 +5,7 @@
 #                                           ~/.local/share/unii-chat-router
 set -eu
 
-REPO_URL="https://github.com/hammerhoundai/unii-chat-router.git"
+REPO_URL="https://github.com/hammerhoundai/unii-router.git"
 REPO_DIR="${UNII_CHAT_ROUTER_INSTALL_DIR:-$HOME/.local/share/unii-chat-router}"
 
 # Prefer a checkout when the script runs next to the tool.
