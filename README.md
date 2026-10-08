@@ -39,7 +39,7 @@ sign-in, and in server mode the client stores its token under
 ## Install
 
 ```sh
-git clone https://github.com/YOURNAME/unii-chat-router.git
+git clone https://github.com/hammerhoundai/unii-chat-router.git
 cd unii-chat-router
 ./install.sh
 ```
