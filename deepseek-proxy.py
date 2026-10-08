@@ -283,7 +283,7 @@ def handle(conn, addr):
         traceback.print_exc()
     finally:
         try: conn.close()
-        except: pass
+        except Exception: pass
 
 s = socket.socket()
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
