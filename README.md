@@ -81,10 +81,10 @@ Unmapped models pass through unchanged.
 
 | Variable                     | Default            | Purpose |
 |------------------------------|--------------------|---------|
-| `DEEPSEEK_API_KEY`           | (required)         | DeepSeek key; also used as `ANTHROPIC_API_KEY` for Unii |
+| `DEEPSEEK_API_KEY`           | (deepseek preset)  | DeepSeek key; also used as `ANTHROPIC_API_KEY` for Unii |
 | `UNII_PORT` / arg            | `8788`             | Local Unii server port |
 | `UNII_CHAT_ROUTER_PROXY_PORT`| `8899`             | Local MITM proxy port |
-| `HIJACK_HOSTS`               | `api.anthropic.com`| Hosts intercepted and rewritten to DeepSeek |
+| `HIJACK_HOSTS`               | `api.anthropic.com`| Intercepted hosts when config doesn't set `hijack_hosts` |
 | `BLOCK_HOSTS`                | `api.openai.com`   | Hosts rejected with 403 |
 | `LAST_REQUEST`               | state dir file     | Where the last request body is dumped (`0600`); empty disables |
 | `UNII_NO_TELEMETRY`          | `1`                | Disables Unii's daily update check (bend-lang.com) |
@@ -110,6 +110,51 @@ the proxy log.
 
 Both apply only to connection setup; streaming responses are never killed by
 an idle timeout.
+
+### Providers and presets
+
+`provider` selects the upstream model provider. Built-in presets:
+
+- `"deepseek"` (default) — `https://api.deepseek.com/anthropic`, Bearer auth,
+  key from `DEEPSEEK_API_KEY`
+- `"custom"` — your own Anthropic-compatible provider (Kimi, Z.ai, a local
+  shim, anything speaking the Anthropic messages API)
+- `"kimi"`, `"zai"` — reserved for future built-in presets (selecting them
+  now falls back to deepseek with a warning)
+
+```json
+{
+  "provider": "custom",
+  "custom": {
+    "base_url": "https://api.moonshot.ai/anthropic",
+    "env_key": "MOONSHOT_API_KEY",
+    "auth": "bearer",
+    "models": {
+      "claude-opus-5-5": "kimi-k2",
+      "claude-sonnet-5-5": "kimi-k2",
+      "claude-haiku-5-5": "kimi-turbo",
+      "*": "kimi-k2"
+    },
+    "hijack_hosts": ["api.anthropic.com"],
+    "web_search_tool": "20260209"
+  }
+}
+```
+
+| Field | Default | Purpose |
+|-------|---------|---------|
+| `base_url` | (required for custom) | Upstream endpoint; `http://` allowed for local shims |
+| `api_key` | — | Key taken directly from the config file |
+| `env_key` | — | Preferred: name of the env var holding the key |
+| `auth` | `bearer` | `bearer` or `x-api-key` |
+| `models` | `{}` | `claude-id → provider-model`; `"*"` is the fallback; unmapped IDs pass through |
+| `hijack_hosts` | `api.anthropic.com` | CONNECT targets intercepted and rewritten |
+| `web_search_tool` | `20260209` | Rewrites Unii's `web_search_*` tool to this version; `null` disables rewriting |
+
+A preset section can also override the built-in preset's fields, e.g.
+`{"provider": "deepseek", "deepseek": {"models": {"*": "deepseek-v4-pro"}}}`.
+Prefer `env_key` over `api_key` so secrets stay out of the config file; keys
+are never printed in logs.
 
 ## Optional network guard
 

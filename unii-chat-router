@@ -13,7 +13,7 @@ set -euo pipefail
 
 self=$(readlink -f "${BASH_SOURCE[0]}")
 here=$(dirname "$self")
-proxy="$here/deepseek-proxy.py"
+proxy="$here/router-proxy.py"
 arg0=$(basename "${BASH_SOURCE[0]}")
 proxy_port=${UNII_CHAT_ROUTER_PROXY_PORT:-${UNII_DEEPSEEK_PROXY_PORT:-8899}}
 unii_port=${UNII_PORT:-8788}
@@ -64,10 +64,6 @@ for arg in "$@"; do
   forward+=("$arg")
 done
 
-if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
-  echo "unii-chat-router: DEEPSEEK_API_KEY is not set" >&2
-  exit 2
-fi
 command -v unii >/dev/null || {
   echo "unii-chat-router: unii is not in PATH" >&2
   exit 2
@@ -86,7 +82,18 @@ export CA_CERT="$state/pki/ca.pem"
 export LEAF_CERT="$state/pki/api.anthropic.com.pem"
 export LEAF_KEY="$state/pki/api.anthropic.com.key"
 export LAST_REQUEST="$state/last-request.json"
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$DEEPSEEK_API_KEY}"
+
+# Resolve provider + API key exactly as the proxy will (single source of truth).
+cfg_path="${UNII_CHAT_ROUTER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unii-chat-router/config.json}"
+resolved=$(UNII_CHAT_ROUTER_CONFIG="$cfg_path" python3 "$proxy" --resolve-key)
+rprovider=$(sed -n 1p <<<"$resolved")
+rkey=$(sed -n 2p <<<"$resolved")
+if [[ -z "$rkey" ]]; then
+  echo "unii-chat-router: no API key resolved for provider '${rprovider:-deepseek}'" >&2
+  echo "  set DEEPSEEK_API_KEY, or custom.api_key / custom.env_key in $cfg_path" >&2
+  exit 2
+fi
+export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$rkey}"
 export HTTPS_PROXY="http://127.0.0.1:$proxy_port"
 export HTTP_PROXY="$HTTPS_PROXY"
 export NO_PROXY="localhost,127.0.0.1,::1"
@@ -105,8 +112,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" PROXY_PORT="$proxy_port" \
-  python3 "$proxy" &
+PROXY_PORT="$proxy_port" python3 "$proxy" &
 proxy_pid=$!
 
 sleep 0.25

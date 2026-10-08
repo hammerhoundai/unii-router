@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import datetime, json, os, socket, ssl, threading, traceback
+import datetime, json, os, socket, ssl, sys, threading, traceback
 from urllib.parse import urlsplit
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -11,15 +11,8 @@ CA_KEY_PATH = os.environ.get("CA_KEY", "/tmp/unii-ds-ca.key")
 CA_CERT_PATH = os.environ.get("CA_CERT", "/tmp/unii-ds-ca.pem")
 LEAF_CERT_PATH = os.environ.get("LEAF_CERT", "/tmp/unii-ds-leaf.pem")
 LEAF_KEY_PATH = os.environ.get("LEAF_KEY", "/tmp/unii-ds-leaf.key")
-UPSTREAM = "api.deepseek.com"
-HIJACK_HOSTS = {x for x in os.environ.get("HIJACK_HOSTS", "api.anthropic.com").split(",") if x}
 BLOCK_HOSTS = {x for x in os.environ.get("BLOCK_HOSTS", "api.openai.com").split(",") if x}
 LAST_REQUEST = os.environ.get("LAST_REQUEST", "")
-MODEL_MAP = {
-    "claude-opus-5-5": "deepseek-flash[1m]",
-    "claude-sonnet-5-5": "deepseek-flash[1m]",
-    "claude-haiku-5-5": "deepseek-flash",
-}
 LOG = threading.Lock()
 
 CONFIG_PATH = os.environ.get(
@@ -29,12 +22,32 @@ CONFIG_PATH = os.environ.get(
 )
 DEFAULT_UPSTREAM_CONNECT_TIMEOUT = 30.0
 DEFAULT_TUNNEL_CONNECT_TIMEOUT = 15.0
+DEFAULT_WEB_SEARCH_TOOL = "20260209"
+DEFAULT_HIJACK_HOSTS = ["api.anthropic.com"]
+
+# Built-in provider presets. `custom` is user-defined in the config file;
+# kimi/zai are reserved for future built-in presets.
+PRESETS = {
+    "deepseek": {
+        "base_url": "https://api.deepseek.com/anthropic",
+        "env_key": "DEEPSEEK_API_KEY",
+        "auth": "bearer",
+        "models": {
+            "claude-opus-5-5": "deepseek-flash[1m]",
+            "claude-sonnet-5-5": "deepseek-flash[1m]",
+            "claude-haiku-5-5": "deepseek-flash",
+        },
+        "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+        "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+    },
+}
+PRESET_NAMES = set(PRESETS) | {"kimi", "zai"}
 
 def log(*a):
     with LOG:
         print(*a, flush=True)
 
-def load_config():
+def load_raw_config():
     try:
         with open(CONFIG_PATH, "rb") as f:
             cfg = json.load(f)
@@ -46,22 +59,114 @@ def load_config():
     if not isinstance(cfg, dict):
         log(f"CONFIG warning: {CONFIG_PATH} is not a JSON object; ignoring")
         return {}
-    known, unknown = {}, []
-    for k, v in cfg.items():
-        if k in ("upstream_connect_timeout", "tunnel_connect_timeout"):
-            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
-                known[k] = float(v)
-            else:
-                log(f"CONFIG warning: ignoring {k}={v!r} (must be a positive number of seconds)")
-        else:
-            unknown.append(k)
-    if unknown:
-        log("CONFIG warning: ignoring unknown keys: " + ", ".join(sorted(unknown)))
-    return known
+    return cfg
 
-CONFIG = load_config()
-UPSTREAM_CONNECT_TIMEOUT = CONFIG.get("upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
-TUNNEL_CONNECT_TIMEOUT = CONFIG.get("tunnel_connect_timeout", DEFAULT_TUNNEL_CONNECT_TIMEOUT)
+def positive_number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+
+def timeout_value(cfg, key, default):
+    v = cfg.get(key, default)
+    if positive_number(v):
+        return float(v)
+    if key in cfg:
+        log(f"CONFIG warning: ignoring {key}={v!r} (must be a positive number of seconds)")
+    return default
+
+def scrub_secrets(cfg):
+    c = json.loads(json.dumps(cfg))
+    sections = [c] + [c[k] for k in list(c) if isinstance(c.get(k), dict)]
+    for s in sections:
+        if isinstance(s, dict) and "api_key" in s:
+            s["api_key"] = "***"
+    return c
+
+def build_provider(name, base, origin):
+    u = urlsplit(base.get("base_url", ""))
+    scheme = (u.scheme or "").lower()
+    if scheme not in ("http", "https") or not u.hostname:
+        log(f"CONFIG warning: {origin}.base_url is missing or invalid; falling back to the deepseek preset")
+        return None
+    key = base.get("api_key")
+    if not (isinstance(key, str) and key.strip()):
+        env_name = base.get("env_key")
+        key = os.environ.get(env_name, "") if isinstance(env_name, str) and env_name else ""
+    if not (isinstance(key, str) and key.strip()):
+        log(f"CONFIG warning: no API key for provider {name!r} (set api_key or env_key); "
+            f"falling back to the deepseek preset")
+        return None
+    auth = base.get("auth", "bearer")
+    if auth not in ("bearer", "x-api-key"):
+        log(f"CONFIG warning: {origin}.auth={auth!r} invalid (bearer|x-api-key); using bearer")
+        auth = "bearer"
+    models = base.get("models") if isinstance(base.get("models"), dict) else {}
+    models = {str(k): str(v) for k, v in models.items() if isinstance(v, str) and v}
+    hijack = base.get("hijack_hosts")
+    if not (isinstance(hijack, list) and hijack and all(isinstance(h, str) and h for h in hijack)):
+        hijack = None  # explicit only; env/default applies otherwise
+    ws = base.get("web_search_tool", DEFAULT_WEB_SEARCH_TOOL)
+    if ws is not None and not (isinstance(ws, str) and ws):
+        log(f"CONFIG warning: {origin}.web_search_tool={ws!r} invalid (string or null); using default")
+        ws = DEFAULT_WEB_SEARCH_TOOL
+    return {
+        "name": name,
+        "scheme": scheme,
+        "host": u.hostname,
+        "port": u.port or (443 if scheme == "https" else 80),
+        "prefix": (u.path or "").rstrip("/"),
+        "key": key.strip(),
+        "auth": auth,
+        "models": models,
+        "hijack_hosts": hijack,
+        "web_search_tool": ws,
+    }
+
+def resolve_provider(cfg):
+    whitelist = {"provider", "custom", "upstream_connect_timeout", "tunnel_connect_timeout"} | PRESET_NAMES
+    unknown = sorted(k for k in cfg if k not in whitelist)
+    if unknown:
+        log("CONFIG warning: ignoring unknown keys: " + ", ".join(unknown))
+    name = cfg.get("provider", "deepseek")
+    if not isinstance(name, str) or not name:
+        log(f"CONFIG warning: ignoring provider={name!r}")
+        name = "deepseek"
+    if name == "custom":
+        c = cfg.get("custom")
+        if isinstance(c, dict) and c:
+            p = build_provider("custom", c, "custom")
+            if p:
+                return p
+        else:
+            log("CONFIG warning: provider=custom but the custom object is missing or empty")
+        log("CONFIG warning: using the built-in deepseek preset instead")
+        name = "deepseek"
+    elif name not in PRESET_NAMES:
+        log(f"CONFIG warning: unknown provider {name!r}; using the built-in deepseek preset")
+        name = "deepseek"
+    elif name not in PRESETS:
+        log(f"CONFIG warning: provider {name!r} is reserved but not available in this version; "
+            f"using the built-in deepseek preset")
+        name = "deepseek"
+    overrides = cfg.get(name) if isinstance(cfg.get(name), dict) else {}
+    base = {**PRESETS[name], **overrides}
+    p = build_provider(name, base, name)
+    if p:
+        return p
+    return build_provider("deepseek", PRESETS["deepseek"], "deepseek")
+
+RAW_CONFIG = load_raw_config()
+UPSTREAM_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
+TUNNEL_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "tunnel_connect_timeout", DEFAULT_TUNNEL_CONNECT_TIMEOUT)
+PROVIDER = resolve_provider(RAW_CONFIG)
+HIJACK_HOSTS = set(
+    PROVIDER["hijack_hosts"]
+    or [x.strip() for x in os.environ.get("HIJACK_HOSTS", "").split(",") if x.strip()]
+    or DEFAULT_HIJACK_HOSTS
+)
+
+if "--resolve-key" in sys.argv:
+    print(PROVIDER["name"])
+    print(PROVIDER["key"])
+    sys.exit(0)
 
 def name(common):
     return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common)])
@@ -72,8 +177,8 @@ def make_ca():
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
     cert = (x509.CertificateBuilder()
-        .subject_name(name("Unii DeepSeek Local CA"))
-        .issuer_name(name("Unii DeepSeek Local CA"))
+        .subject_name(name("Unii Chat Router Local CA"))
+        .issuer_name(name("Unii Chat Router Local CA"))
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(now)
@@ -89,21 +194,32 @@ def make_ca():
     open(CA_CERT_PATH, "wb").write(cert.public_bytes(serialization.Encoding.PEM))
     os.chmod(CA_KEY_PATH, 0o600)
 
-def make_leaf():
+def make_leaf(hosts):
+    hosts = sorted(set(hosts))
+    if not hosts:
+        raise RuntimeError("no hijack hosts configured; refusing to issue an empty leaf certificate")
     if os.path.exists(LEAF_CERT_PATH) and os.path.exists(LEAF_KEY_PATH):
-        return
+        try:
+            cert = x509.load_pem_x509_certificate(open(LEAF_CERT_PATH, "rb").read())
+            have = {x.value for x in cert.extensions
+                    .get_extension_for_class(x509.SubjectAlternativeName).value}
+            if have == set(hosts):
+                return
+            log("leaf certificate host set changed; regenerating")
+        except Exception:
+            log("existing leaf certificate unreadable; regenerating")
     ca_key = serialization.load_pem_private_key(open(CA_KEY_PATH, "rb").read(), None)
     ca_cert = x509.load_pem_x509_certificate(open(CA_CERT_PATH, "rb").read())
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
     cert = (x509.CertificateBuilder()
-        .subject_name(name("api.anthropic.com"))
+        .subject_name(name(hosts[0]))
         .issuer_name(ca_cert.subject)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(now)
         .not_valid_after(now + datetime.timedelta(days=825))
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName("api.anthropic.com")]), critical=False)
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName(h) for h in hosts]), critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
         .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), critical=False)
@@ -116,7 +232,8 @@ def make_leaf():
     open(LEAF_CERT_PATH, "wb").write(cert.public_bytes(serialization.Encoding.PEM))
     os.chmod(LEAF_KEY_PATH, 0o600)
 
-make_ca(); make_leaf()
+make_ca()
+make_leaf(HIJACK_HOSTS)
 server_tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 server_tls.set_alpn_protocols(["http/1.1"])
 server_tls.load_cert_chain(LEAF_CERT_PATH, LEAF_KEY_PATH)
@@ -151,12 +268,14 @@ def header(headers, k):
 def rewrite(body):
     obj = json.loads(body)
     if "model" in obj:
-        obj["model"] = MODEL_MAP.get(obj["model"], obj["model"])
+        m = obj["model"]
+        obj["model"] = PROVIDER["models"].get(m, PROVIDER["models"].get("*", m))
     tools = obj.get("tools")
-    if isinstance(tools, list):
+    ws = PROVIDER["web_search_tool"]
+    if isinstance(tools, list) and isinstance(ws, str) and ws:
         for t in tools:
             if isinstance(t, dict) and isinstance(t.get("type"), str) and t["type"].startswith("web_search_"):
-                t["type"] = "web_search_20260209"
+                t["type"] = f"web_search_{ws}"
     return json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode()
 
 def relay(src, dst):
@@ -183,7 +302,7 @@ def copy(src, dst):
 
 def blocked_response(conn, note):
     log("BLOCK", note)
-    conn.sendall(b"HTTP/1.1 403 Blocked by Unii DeepSeek proxy\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+    conn.sendall(b"HTTP/1.1 403 Blocked by Unii Chat Router proxy\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
 
 def forward_plain(conn, method, target, headers, body_rest):
     if target.startswith("/"):
@@ -244,6 +363,17 @@ def tunnel(conn, target):
         copy(conn, up)
         t.join(timeout=5)
 
+def send_and_relay(up, client, upstream_req):
+    up.settimeout(None)
+    up.sendall(upstream_req)
+    resph = recv_until_headers(up)
+    if not resph:
+        return False
+    log("MODEL-RS", resph.split(b"\r\n", 1)[0].decode("latin1"))
+    client.sendall(resph)
+    relay(up, client)
+    return True
+
 def proxy_anthropic(client):
     raw = recv_until_headers(client)
     if not raw:
@@ -264,33 +394,29 @@ def proxy_anthropic(client):
         fd = os.open(LAST_REQUEST, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(newbody)
-    log(f"MODEL-RQ path={target} bytes={len(newbody)} -> https://{UPSTREAM}/anthropic{target}")
-    out_headers = []
-    for k, v in headers:
-        if k in ("host", "content-length", "connection", "proxy-connection", "keep-alive",
-                 "transfer-encoding", "expect", "x-api-key", "anthropic-beta", "authorization"):
-            continue
-        out_headers.append((k, v))
+    default_port = (PROVIDER["scheme"] == "https" and PROVIDER["port"] == 443) or \
+                   (PROVIDER["scheme"] == "http" and PROVIDER["port"] == 80)
+    host_header = PROVIDER["host"] + ("" if default_port else f":{PROVIDER['port']}")
+    log(f"MODEL-RQ path={target} bytes={len(newbody)} -> {PROVIDER['scheme']}://{host_header}{PROVIDER['prefix']}{target}")
+    if PROVIDER["auth"] == "x-api-key":
+        auth_line = f"x-api-key: {PROVIDER['key']}"
+    else:
+        auth_line = f"Authorization: Bearer {PROVIDER['key']}"
     upstream_req = (
-        f"POST /anthropic{target} HTTP/1.1\r\n"
-        f"Host: {UPSTREAM}\r\n"
-        f"Authorization: Bearer {os.environ['DEEPSEEK_API_KEY']}\r\n"
+        f"POST {PROVIDER['prefix']}{target} HTTP/1.1\r\n"
+        f"Host: {host_header}\r\n"
+        f"{auth_line}\r\n"
         f"content-type: application/json\r\n"
         f"anthropic-version: 2023-06-01\r\n"
         f"content-length: {len(newbody)}\r\n"
         f"connection: close\r\n\r\n"
     ).encode("latin1") + newbody
-    with socket.create_connection((UPSTREAM, 443), timeout=UPSTREAM_CONNECT_TIMEOUT) as plain:
-        with upstream_tls.wrap_socket(plain, server_hostname=UPSTREAM) as up:
-            up.settimeout(None)
-            up.sendall(upstream_req)
-            resph = recv_until_headers(up)
-            if not resph:
-                return False
-            log("MODEL-RS", resph.split(b"\r\n", 1)[0].decode("latin1"))
-            client.sendall(resph)
-            relay(up, client)
-    return True
+    with socket.create_connection((PROVIDER["host"], PROVIDER["port"]),
+                                  timeout=UPSTREAM_CONNECT_TIMEOUT) as plain:
+        if PROVIDER["scheme"] == "https":
+            with upstream_tls.wrap_socket(plain, server_hostname=PROVIDER["host"]) as up:
+                return send_and_relay(up, client, upstream_req)
+        return send_and_relay(plain, client, upstream_req)
 
 def handle(conn, addr):
     try:
@@ -308,7 +434,7 @@ def handle(conn, addr):
             else:
                 tunnel(conn, target)
             return
-        log(f"ALLOW CONNECT {target} (intercept; upstream={UPSTREAM})")
+        log(f"ALLOW CONNECT {target} (intercept; provider={PROVIDER['name']})")
         conn.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         with server_tls.wrap_socket(conn, server_side=True) as tls:
             while proxy_anthropic(tls):
@@ -326,11 +452,15 @@ s = socket.socket()
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.bind(LISTEN)
 s.listen(128)
-log(f"listening on http://{LISTEN[0]}:{LISTEN[1]}; intercept={sorted(HIJACK_HOSTS)}; "
-    f"upstream=https://{UPSTREAM}/anthropic; upstream_connect_timeout={UPSTREAM_CONNECT_TIMEOUT:g}s; "
-    f"tunnel_connect_timeout={TUNNEL_CONNECT_TIMEOUT:g}s")
-if CONFIG:
-    log(f"CONFIG overrides from {CONFIG_PATH}: " + json.dumps(CONFIG, sort_keys=True))
+default_port = (PROVIDER["scheme"] == "https" and PROVIDER["port"] == 443) or \
+               (PROVIDER["scheme"] == "http" and PROVIDER["port"] == 80)
+base_desc = (f"{PROVIDER['scheme']}://{PROVIDER['host']}"
+             + ("" if default_port else f":{PROVIDER['port']}") + PROVIDER["prefix"])
+log(f"listening on http://{LISTEN[0]}:{LISTEN[1]}; provider={PROVIDER['name']}; "
+    f"upstream={base_desc}; intercept={sorted(HIJACK_HOSTS)}; auth={PROVIDER['auth']}; "
+    f"upstream_connect_timeout={UPSTREAM_CONNECT_TIMEOUT:g}s; tunnel_connect_timeout={TUNNEL_CONNECT_TIMEOUT:g}s")
+if RAW_CONFIG:
+    log(f"CONFIG loaded from {CONFIG_PATH}: " + json.dumps(scrub_secrets(RAW_CONFIG), sort_keys=True))
 while True:
     c, a = s.accept()
     threading.Thread(target=handle, args=(c,a), daemon=True).start()
