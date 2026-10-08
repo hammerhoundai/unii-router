@@ -82,24 +82,27 @@ export CA_CERT="$state/pki/ca.pem"
 export LEAF_CERT="$state/pki/api.anthropic.com.pem"
 export LEAF_KEY="$state/pki/api.anthropic.com.key"
 export LAST_REQUEST="$state/last-request.json"
-
-# Resolve provider + API key exactly as the proxy will (single source of truth).
 cfg_path="${UNII_CHAT_ROUTER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unii-chat-router/config.json}"
+# Resolve provider, API key, and telemetry opt-out exactly as the proxy will
+# (single source of truth).
 resolved=$(UNII_CHAT_ROUTER_CONFIG="$cfg_path" python3 "$proxy" --resolve-key)
 rprovider=$(sed -n 1p <<<"$resolved")
 rkey=$(sed -n 2p <<<"$resolved")
+no_telemetry=$(sed -n 3p <<<"$resolved")
 if [[ -z "$rkey" ]]; then
   echo "unii-router: no API key resolved for provider '${rprovider:-deepseek}'" >&2
   echo "  set DEEPSEEK_API_KEY, or custom.api_key / custom.env_key in $cfg_path" >&2
   exit 2
 fi
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$rkey}"
+if [[ "$no_telemetry" == 1 ]]; then
+  export UNII_NO_TELEMETRY="${UNII_NO_TELEMETRY:-1}"
+fi
 export HTTPS_PROXY="http://127.0.0.1:$proxy_port"
 export HTTP_PROXY="$HTTPS_PROXY"
 export NO_PROXY="localhost,127.0.0.1,::1"
 export NODE_EXTRA_CA_CERTS="$CA_CERT"
 export OPT_SITE="${OPT_SITE:-http://127.0.0.1:$unii_port}"
-export UNII_NO_TELEMETRY="${UNII_NO_TELEMETRY:-1}"
 
 cleanup() {
   trap - EXIT INT TERM

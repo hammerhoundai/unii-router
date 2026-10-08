@@ -87,7 +87,7 @@ Custom providers define their own mapping (including a `"*"` fallback) in
 | `HIJACK_HOSTS`               | `api.anthropic.com`| Intercepted hosts when config doesn't set `hijack_hosts` |
 | `BLOCK_HOSTS`                | `api.openai.com`   | Hosts rejected with 403 |
 | `LAST_REQUEST`               | state dir file     | Where the last request body is dumped (`0600`); empty disables |
-| `UNII_NO_TELEMETRY`          | `1`                | Disables Unii's daily update check (bend-lang.com) |
+| `UNII_NO_TELEMETRY`          | (not set)          | Opt out of Unii's daily update check; normally set via `unii_no_telemetry` in the config file |
 
 ## Configuration file
 
@@ -107,9 +107,11 @@ keys or bad values are ignored with a warning in the proxy log.
 |---------------------------|---------|---------|
 | `upstream_connect_timeout`| `30`    | Seconds to connect + TLS-handshake to the model provider |
 | `tunnel_connect_timeout`  | `15`    | Seconds to connect for blind-tunneled non-model hosts |
+| `unii_no_telemetry`       | `false` | `true` sets `UNII_NO_TELEMETRY=1` for the Unii server (opts out of Unii's daily update check to bend-lang.com) |
 
-Both apply only to connection setup; streaming responses are never killed by
-an idle timeout.
+Timeouts apply only to connection setup; streaming responses are never killed
+by an idle timeout. Telemetry is Unii's own (version + OS + CPU type only);
+it is on by default and the router does not touch it unless you opt out.
 
 ### Providers and presets
 
@@ -132,6 +134,7 @@ when you want a different provider):
   "active_provider": "deepseek",
   "upstream_connect_timeout": 30,
   "tunnel_connect_timeout": 15,
+  "unii_no_telemetry": false,
   "providers": {
     "deepseek": {
       "base_url": "https://api.deepseek.com/anthropic",

@@ -24,6 +24,7 @@ DEFAULT_UPSTREAM_CONNECT_TIMEOUT = 30.0
 DEFAULT_TUNNEL_CONNECT_TIMEOUT = 15.0
 DEFAULT_WEB_SEARCH_TOOL = "20260209"
 DEFAULT_HIJACK_HOSTS = ["api.anthropic.com"]
+DEFAULT_UNII_NO_TELEMETRY = False
 
 # Built-in provider presets. `custom` is user-defined in the config file;
 # kimi/zai are reserved for future built-in presets.
@@ -56,6 +57,7 @@ def default_config_template():
         "active_provider": "deepseek",
         "upstream_connect_timeout": int(DEFAULT_UPSTREAM_CONNECT_TIMEOUT),
         "tunnel_connect_timeout": int(DEFAULT_TUNNEL_CONNECT_TIMEOUT),
+        "unii_no_telemetry": DEFAULT_UNII_NO_TELEMETRY,
         "providers": {
             "deepseek": dict(PRESETS["deepseek"]),
             "custom": {
@@ -109,6 +111,15 @@ def timeout_value(cfg, key, default):
         log(f"CONFIG warning: ignoring {key}={v!r} (must be a positive number of seconds)")
     return default
 
+def bool_value(cfg, key, default):
+    if key not in cfg:
+        return default
+    v = cfg[key]
+    if isinstance(v, bool):
+        return v
+    log(f"CONFIG warning: ignoring {key}={v!r} (must be true or false)")
+    return default
+
 def scrub_secrets(cfg):
     c = json.loads(json.dumps(cfg))
     sections = [c] + [c[k] for k in list(c) if isinstance(c.get(k), dict)]
@@ -159,7 +170,8 @@ def build_provider(name, base, origin):
 
 def resolve_provider(cfg):
     whitelist = {"active_provider", "provider", "providers", "custom", "deepseek",
-                 "upstream_connect_timeout", "tunnel_connect_timeout"} | PRESET_NAMES
+                 "upstream_connect_timeout", "tunnel_connect_timeout",
+                 "unii_no_telemetry"} | PRESET_NAMES
     unknown = sorted(k for k in cfg if k not in whitelist)
     if unknown:
         log("CONFIG warning: ignoring unknown keys: " + ", ".join(unknown))
@@ -223,6 +235,7 @@ def resolve_provider(cfg):
 RAW_CONFIG = load_config()
 UPSTREAM_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
 TUNNEL_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "tunnel_connect_timeout", DEFAULT_TUNNEL_CONNECT_TIMEOUT)
+UNII_NO_TELEMETRY = bool_value(RAW_CONFIG, "unii_no_telemetry", DEFAULT_UNII_NO_TELEMETRY)
 PROVIDER = resolve_provider(RAW_CONFIG)
 HIJACK_HOSTS = set(
     PROVIDER["hijack_hosts"]
@@ -233,6 +246,7 @@ HIJACK_HOSTS = set(
 if "--resolve-key" in sys.argv:
     print(PROVIDER["name"])
     print(PROVIDER["key"])
+    print(1 if UNII_NO_TELEMETRY else 0)
     sys.exit(0)
 
 def name(common):
