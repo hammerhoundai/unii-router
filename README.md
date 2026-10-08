@@ -121,8 +121,7 @@ its own section under `providers`. Built-in preset names:
 - `"kimi"` — Moonshot Kimi coding plan: `https://api.kimi.ai/coding`,
   `x-api-key` auth, key from `KIMI_API_KEY`, all roles → `k3-256k`
 - `"zai"` — Z.ai coding plan: `https://api.z.ai/api/anthropic`, Bearer auth,
-  key from `ZAI_API_KEY`; opus/sonnet → `glm-5.3[1m]`, haiku →
-  `glm-5.3-flash[1m]`
+  key from `ZAI_API_KEY`, all roles → `glm-5.3-flash`
 - `"custom"` — your own Anthropic-compatible provider (any vendor or a local
   shim speaking the Anthropic messages API)
 
@@ -202,7 +201,7 @@ be overridden in the provider's `providers.<name>` section):
 |--------|----------|------|-------------|--------|
 | `deepseek` | `https://api.deepseek.com/anthropic` | bearer | `DEEPSEEK_API_KEY` | opus/sonnet → `deepseek-flash[1m]`, haiku → `deepseek-flash` |
 | `kimi` | `https://api.kimi.ai/coding` | `x-api-key` | `KIMI_API_KEY` | all roles → `k3-256k` |
-| `zai` | `https://api.z.ai/api/anthropic` | bearer | `ZAI_API_KEY` | opus/sonnet → `glm-5.3[1m]`, haiku → `glm-5.3-flash[1m]` |
+| `zai` | `https://api.z.ai/api/anthropic` | bearer | `ZAI_API_KEY` | all roles → `glm-5.3-flash` |
 
 Preset sections can override any built-in default, e.g.
 `"providers": {"deepseek": {"models": {"*": "deepseek-v4-pro"}}}`. While a
