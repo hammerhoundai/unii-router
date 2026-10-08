@@ -22,9 +22,46 @@ MODEL_MAP = {
 }
 LOG = threading.Lock()
 
+CONFIG_PATH = os.environ.get(
+    "UNII_CHAT_ROUTER_CONFIG",
+    os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                 "unii-chat-router", "config.json"),
+)
+DEFAULT_UPSTREAM_CONNECT_TIMEOUT = 30.0
+DEFAULT_TUNNEL_CONNECT_TIMEOUT = 15.0
+
 def log(*a):
     with LOG:
         print(*a, flush=True)
+
+def load_config():
+    try:
+        with open(CONFIG_PATH, "rb") as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        log(f"CONFIG warning: ignoring unreadable {CONFIG_PATH}: {e!r}")
+        return {}
+    if not isinstance(cfg, dict):
+        log(f"CONFIG warning: {CONFIG_PATH} is not a JSON object; ignoring")
+        return {}
+    known, unknown = {}, []
+    for k, v in cfg.items():
+        if k in ("upstream_connect_timeout", "tunnel_connect_timeout"):
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                known[k] = float(v)
+            else:
+                log(f"CONFIG warning: ignoring {k}={v!r} (must be a positive number of seconds)")
+        else:
+            unknown.append(k)
+    if unknown:
+        log("CONFIG warning: ignoring unknown keys: " + ", ".join(sorted(unknown)))
+    return known
+
+CONFIG = load_config()
+UPSTREAM_CONNECT_TIMEOUT = CONFIG.get("upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
+TUNNEL_CONNECT_TIMEOUT = CONFIG.get("tunnel_connect_timeout", DEFAULT_TUNNEL_CONNECT_TIMEOUT)
 
 def name(common):
     return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common)])
@@ -182,7 +219,7 @@ def forward_plain(conn, method, target, headers, body_rest):
     out.append("connection: close")
     req = ("\r\n".join(out) + "\r\n\r\n").encode("latin1") + body
     log(f"TUNNEL {method} http://{host}:{port}{path}")
-    with socket.create_connection((host, port), timeout=30) as up:
+    with socket.create_connection((host, port), timeout=UPSTREAM_CONNECT_TIMEOUT) as up:
         up.settimeout(None)
         up.sendall(req)
         resph = recv_until_headers(up)
@@ -199,7 +236,7 @@ def tunnel(conn, target):
         host = host.strip("[]")
         port = int(port_s)
     log(f"TUNNEL CONNECT {target}")
-    with socket.create_connection((host, port), timeout=15) as up:
+    with socket.create_connection((host, port), timeout=TUNNEL_CONNECT_TIMEOUT) as up:
         up.settimeout(None)
         conn.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
         t = threading.Thread(target=copy, args=(up, conn), daemon=True)
@@ -243,7 +280,7 @@ def proxy_anthropic(client):
         f"content-length: {len(newbody)}\r\n"
         f"connection: close\r\n\r\n"
     ).encode("latin1") + newbody
-    with socket.create_connection((UPSTREAM, 443), timeout=30) as plain:
+    with socket.create_connection((UPSTREAM, 443), timeout=UPSTREAM_CONNECT_TIMEOUT) as plain:
         with upstream_tls.wrap_socket(plain, server_hostname=UPSTREAM) as up:
             up.settimeout(None)
             up.sendall(upstream_req)
@@ -289,7 +326,11 @@ s = socket.socket()
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.bind(LISTEN)
 s.listen(128)
-log(f"listening on http://{LISTEN[0]}:{LISTEN[1]}; intercept={sorted(HIJACK_HOSTS)}; upstream=https://{UPSTREAM}/anthropic")
+log(f"listening on http://{LISTEN[0]}:{LISTEN[1]}; intercept={sorted(HIJACK_HOSTS)}; "
+    f"upstream=https://{UPSTREAM}/anthropic; upstream_connect_timeout={UPSTREAM_CONNECT_TIMEOUT:g}s; "
+    f"tunnel_connect_timeout={TUNNEL_CONNECT_TIMEOUT:g}s")
+if CONFIG:
+    log(f"CONFIG overrides from {CONFIG_PATH}: " + json.dumps(CONFIG, sort_keys=True))
 while True:
     c, a = s.accept()
     threading.Thread(target=handle, args=(c,a), daemon=True).start()

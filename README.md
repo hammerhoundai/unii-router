@@ -89,6 +89,28 @@ Unmapped models pass through unchanged.
 | `LAST_REQUEST`               | state dir file     | Where the last request body is dumped (`0600`); empty disables |
 | `UNII_NO_TELEMETRY`          | `1`                | Disables Unii's daily update check (bend-lang.com) |
 
+## Configuration file
+
+Optional settings live in `~/.config/unii-chat-router/config.json` (override
+the path with `UNII_CHAT_ROUTER_CONFIG`). Anything not configured keeps its
+built-in default; unknown keys and bad values are ignored with a warning in
+the proxy log.
+
+```json
+{
+  "upstream_connect_timeout": 30,
+  "tunnel_connect_timeout": 15
+}
+```
+
+| Key                       | Default | Purpose |
+|---------------------------|---------|---------|
+| `upstream_connect_timeout`| `30`    | Seconds to connect + TLS-handshake to the model provider |
+| `tunnel_connect_timeout`  | `15`    | Seconds to connect for blind-tunneled non-model hosts |
+
+Both apply only to connection setup; streaming responses are never killed by
+an idle timeout.
+
 ## Optional network guard
 
 `landlock-exec.py` applies Linux Landlock's deny-by-default TCP-connect policy
