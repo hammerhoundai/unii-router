@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import datetime, json, os, socket, ssl, sys, threading, traceback
+import copy, datetime, json, os, socket, ssl, sys, threading, traceback
 from urllib.parse import urlsplit
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -79,22 +79,21 @@ def is_placeholder(v):
     return isinstance(v, str) and v.strip().upper() == PLACEHOLDER
 
 def default_config_template():
+    providers = copy.deepcopy(PRESETS)
+    providers["custom"] = {
+        "base_url": PLACEHOLDER,
+        "env_key": PLACEHOLDER,
+        "auth": "bearer",
+        "models": {},
+        "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+        "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+    }
     return {
         "active_provider": "deepseek",
         "upstream_connect_timeout": int(DEFAULT_UPSTREAM_CONNECT_TIMEOUT),
         "tunnel_connect_timeout": int(DEFAULT_TUNNEL_CONNECT_TIMEOUT),
         "unii_no_telemetry": DEFAULT_UNII_NO_TELEMETRY,
-        "providers": {
-            "deepseek": dict(PRESETS["deepseek"]),
-            "custom": {
-                "base_url": PLACEHOLDER,
-                "env_key": PLACEHOLDER,
-                "auth": "bearer",
-                "models": {},
-                "hijack_hosts": DEFAULT_HIJACK_HOSTS,
-                "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
-            },
-        },
+        "providers": providers,
     }
 
 def write_default_config_if_missing():

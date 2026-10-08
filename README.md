@@ -133,9 +133,10 @@ its own section under `providers`. Built-in preset names:
 - `"custom"` — your own Anthropic-compatible provider (any vendor or a local
   shim speaking the Anthropic messages API)
 
-The auto-generated default file looks like this (`providers.deepseek` is the
-real default configuration; `providers.custom` holds placeholders to fill in
-when you want a different provider):
+The auto-generated default file looks like this (`active_provider` selects
+DeepSeek; the other preset sections are present so they can be edited or
+selected without being copied from documentation; `providers.custom` holds
+placeholders):
 
 ```json
 {
@@ -152,6 +153,32 @@ when you want a different provider):
         "claude-opus-5-5": "deepseek-flash",
         "claude-sonnet-5-5": "deepseek-flash",
         "claude-haiku-5-5": "deepseek-flash"
+      },
+      "hijack_hosts": ["api.anthropic.com"],
+      "web_search_tool": "20260209"
+    },
+    "kimi": {
+      "base_url": "https://api.kimi.ai/coding",
+      "env_key": "KIMI_API_KEY",
+      "auth": "x-api-key",
+      "models": {
+        "claude-opus-5-5": "k3-256k",
+        "claude-sonnet-5-5": "k3-256k",
+        "claude-haiku-5-5": "k3-256k",
+        "*": "k3-256k"
+      },
+      "hijack_hosts": ["api.anthropic.com"],
+      "web_search_tool": "20260209"
+    },
+    "zai": {
+      "base_url": "https://api.z.ai/api/anthropic",
+      "env_key": "ZAI_API_KEY",
+      "auth": "bearer",
+      "models": {
+        "claude-opus-5-5": "glm-5.3-flash",
+        "claude-sonnet-5-5": "glm-5.3-flash",
+        "claude-haiku-5-5": "glm-5.3-flash",
+        "*": "glm-5.3-flash"
       },
       "hijack_hosts": ["api.anthropic.com"],
       "web_search_tool": "20260209"
