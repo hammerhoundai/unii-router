@@ -68,23 +68,26 @@ the launched process tree via `NODE_EXTRA_CA_CERTS` — nothing is installed int
 the system trust store. The last model request is written `0600` to
 `~/.local/state/unii-chat-router/last-request.json` for debugging.
 
-### Model mapping (DeepSeek preset)
+### Model mapping
 
-| Unii asks for        | Router sends          |
-|----------------------|-----------------------|
-| `claude-opus-5-5`    | `deepseek-flash`  |
-| `claude-sonnet-5-5`  | `deepseek-flash`  |
-| `claude-haiku-5-5`   | `deepseek-flash`      |
+Unii requests Claude model IDs. The router rewrites them using the active
+provider's `providers.<name>.models` map:
 
-Unmapped models pass through unchanged.
-Custom providers define their own mapping (including a `"*"` fallback) in
-`providers.custom.models`.
+| Unii asks for          | Router uses                          |
+|------------------------|--------------------------------------|
+| `claude-opus-5-5`      | the matching provider model          |
+| `claude-sonnet-5-5`    | the matching provider model          |
+| `claude-haiku-5-5`     | the matching provider model          |
+| any other model ID     | the same ID, unless `"*"` is mapped  |
+
+Every built-in preset supplies its own defaults; see
+[Providers and presets](#providers-and-presets).
 
 ## Environment variables
 
 | Variable                     | Default            | Purpose |
 |------------------------------|--------------------|---------|
-| `DEEPSEEK_API_KEY`           | (deepseek preset)  | DeepSeek key; also used as `ANTHROPIC_API_KEY` for Unii |
+| provider key variable        | `DEEPSEEK_API_KEY`, `KIMI_API_KEY`, or `ZAI_API_KEY` | Read when the selected preset's `env_key` names it; custom providers can name any variable |
 | `UNII_PORT` / arg            | `8788`             | Local Unii server port |
 | `UNII_CHAT_ROUTER_PROXY_PORT`| `8899`             | Local MITM proxy port |
 | `HIJACK_HOSTS`               | `api.anthropic.com`| Intercepted hosts when config doesn't set `hijack_hosts` |
