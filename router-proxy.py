@@ -396,6 +396,37 @@ def relay(src, dst):
             break
         dst.sendall(b)
 
+def watch_model_client(client, up, finished):
+    """Close the upstream request when the Unii client disappears.
+
+    The request has already been forwarded in full, so any read on the client
+    connection while the model response is active can only be a disconnect or
+    an invalid early request. The polling is only for waking this watcher when
+    a normal response completes.
+    """
+    try:
+        client.settimeout(0.1)
+        while not finished.is_set():
+            try:
+                data = client.recv(4096)
+            except TimeoutError:
+                continue
+            except OSError:
+                log("MODEL-CANCEL client connection failed")
+                return
+            if not data:
+                log("MODEL-CANCEL client closed connection")
+                return
+            log("MODEL-CANCEL unexpected client data")
+            return
+    finally:
+        client.settimeout(None)
+        if not finished.is_set():
+            try:
+                up.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+
 def copy(src, dst):
     try:
         while True:
@@ -476,14 +507,26 @@ def tunnel(conn, target):
 
 def send_and_relay(up, client, upstream_req):
     up.settimeout(None)
-    up.sendall(upstream_req)
-    resph = recv_until_headers(up)
-    if not resph:
-        return False
-    log("MODEL-RS", resph.split(b"\r\n", 1)[0].decode("latin1"))
-    client.sendall(resph)
-    relay(up, client)
-    return True
+    finished = threading.Event()
+    watcher = threading.Thread(target=watch_model_client,
+                               args=(client, up, finished), daemon=True)
+    watcher.start()
+    try:
+        up.sendall(upstream_req)
+        resph = recv_until_headers(up)
+        if not resph:
+            return False
+        log("MODEL-RS", resph.split(b"\r\n", 1)[0].decode("latin1"))
+        client.sendall(resph)
+        relay(up, client)
+        return True
+    finally:
+        finished.set()
+        watcher.join(timeout=1)
+        try:
+            client.settimeout(None)
+        except OSError:
+            pass
 
 def proxy_anthropic(client):
     raw = recv_until_headers(client)
