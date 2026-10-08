@@ -35,13 +35,19 @@ sign-in, and in server mode the client stores its token under
 ## Install
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/hammerhoundai/unii-chat-router/master/install.sh | sh
+```
+
+This clones the repo to `~/.local/share/unii-chat-router`, checks its
+dependencies, and symlinks both commands into `~/.local/bin`.
+
+To install from an existing checkout:
+
+```sh
 git clone https://github.com/hammerhoundai/unii-chat-router.git
 cd unii-chat-router
 ./install.sh
 ```
-
-`install.sh` checks dependencies and symlinks `unii-router` and
-`unii-router-client` into `~/.local/bin`.
 
 ## Usage
 
