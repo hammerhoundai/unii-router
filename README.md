@@ -43,7 +43,7 @@ cd unii-chat-router
 ```
 
 `install.sh` checks dependencies and symlinks `unii-router`,
-`unii-router-client` (plus legacy `unii-deepseek` aliases) into
+`unii-router-client` into
 `~/.local/bin`.
 
 ## Usage

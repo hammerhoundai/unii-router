@@ -39,7 +39,7 @@ command -v unii >/dev/null || {
 }
 
 mkdir -p "$HOME/.local/bin"
-for name in unii-router unii-router-client unii-deepseek unii-deepseek-client; do
+for name in unii-router unii-router-client; do
     ln -sfn "$REPO_DIR/unii-router" "$HOME/.local/bin/$name"
 done
 echo "installed into $HOME/.local/bin: unii-router unii-router-client (repo: $REPO_DIR)"

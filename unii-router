@@ -15,12 +15,12 @@ self=$(readlink -f "${BASH_SOURCE[0]}")
 here=$(dirname "$self")
 proxy="$here/router-proxy.py"
 arg0=$(basename "${BASH_SOURCE[0]}")
-proxy_port=${UNII_CHAT_ROUTER_PROXY_PORT:-${UNII_DEEPSEEK_PROXY_PORT:-8899}}
+proxy_port=${UNII_CHAT_ROUTER_PROXY_PORT:-8899}
 unii_port=${UNII_PORT:-8788}
 
 mode=serve
 case "$arg0" in
-  unii-router-client|unii-chat-router-client|unii-deepseek-client) mode=client ;;
+  unii-router-client) mode=client ;;
 esac
 if [[ $mode == serve && ${1:-} == client ]]; then
   shift
