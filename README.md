@@ -67,8 +67,8 @@ the system trust store. The last model request is written `0600` to
 
 | Unii asks for        | Router sends          |
 |----------------------|-----------------------|
-| `claude-opus-5-5`    | `deepseek-flash[1m]`  |
-| `claude-sonnet-5-5`  | `deepseek-flash[1m]`  |
+| `claude-opus-5-5`    | `deepseek-flash`  |
+| `claude-sonnet-5-5`  | `deepseek-flash`  |
 | `claude-haiku-5-5`   | `deepseek-flash`      |
 
 Unmapped models pass through unchanged.
@@ -141,8 +141,8 @@ when you want a different provider):
       "env_key": "DEEPSEEK_API_KEY",
       "auth": "bearer",
       "models": {
-        "claude-opus-5-5": "deepseek-flash[1m]",
-        "claude-sonnet-5-5": "deepseek-flash[1m]",
+        "claude-opus-5-5": "deepseek-flash",
+        "claude-sonnet-5-5": "deepseek-flash",
         "claude-haiku-5-5": "deepseek-flash"
       },
       "hijack_hosts": ["api.anthropic.com"],
@@ -199,7 +199,7 @@ be overridden in the provider's `providers.<name>` section):
 
 | Preset | Base URL | Auth | Key env var | Models |
 |--------|----------|------|-------------|--------|
-| `deepseek` | `https://api.deepseek.com/anthropic` | bearer | `DEEPSEEK_API_KEY` | opus/sonnet → `deepseek-flash[1m]`, haiku → `deepseek-flash` |
+| `deepseek` | `https://api.deepseek.com/anthropic` | bearer | `DEEPSEEK_API_KEY` | opus/sonnet → `deepseek-flash`, haiku → `deepseek-flash` |
 | `kimi` | `https://api.kimi.ai/coding` | `x-api-key` | `KIMI_API_KEY` | all roles → `k3-256k` |
 | `zai` | `https://api.z.ai/api/anthropic` | bearer | `ZAI_API_KEY` | all roles → `glm-5.3-flash` |
 

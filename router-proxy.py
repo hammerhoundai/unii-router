@@ -34,8 +34,8 @@ PRESETS = {
         "env_key": "DEEPSEEK_API_KEY",
         "auth": "bearer",
         "models": {
-            "claude-opus-5-5": "deepseek-flash[1m]",
-            "claude-sonnet-5-5": "deepseek-flash[1m]",
+            "claude-opus-5-5": "deepseek-flash",
+            "claude-sonnet-5-5": "deepseek-flash",
             "claude-haiku-5-5": "deepseek-flash",
         },
         "hijack_hosts": DEFAULT_HIJACK_HOSTS,
