@@ -118,10 +118,13 @@ its own section under `providers`. Built-in preset names:
 
 - `"deepseek"` (default) — `https://api.deepseek.com/anthropic`, Bearer auth,
   key from `DEEPSEEK_API_KEY`
-- `"custom"` — your own Anthropic-compatible provider (Kimi, Z.ai, a local
-  shim, anything speaking the Anthropic messages API)
-- `"kimi"`, `"zai"` — reserved for future built-in presets (selecting them
-  now falls back to deepseek with a warning)
+- `"kimi"` — Moonshot Kimi coding plan: `https://api.kimi.ai/coding`,
+  `x-api-key` auth, key from `KIMI_API_KEY`, all roles → `k3-256k`
+- `"zai"` — Z.ai coding plan: `https://api.z.ai/api/anthropic`, Bearer auth,
+  key from `ZAI_API_KEY`; opus/sonnet → `glm-5.3[1m]`, haiku →
+  `glm-5.3-flash[1m]`
+- `"custom"` — your own Anthropic-compatible provider (any vendor or a local
+  shim speaking the Anthropic messages API)
 
 The auto-generated default file looks like this (`providers.deepseek` is the
 real default configuration; `providers.custom` holds placeholders to fill in
@@ -191,6 +194,15 @@ custom section, e.g. for Kimi:
 | `models` | `{}` | `claude-id → provider-model`; `"*"` is the fallback; unmapped IDs pass through |
 | `hijack_hosts` | `api.anthropic.com` | CONNECT targets intercepted and rewritten |
 | `web_search_tool` | `20260209` | Rewrites Unii's `web_search_*` tool to this version; `null` disables rewriting |
+
+Preset reference (all presets intercept `api.anthropic.com`; every field can
+be overridden in the provider's `providers.<name>` section):
+
+| Preset | Base URL | Auth | Key env var | Models |
+|--------|----------|------|-------------|--------|
+| `deepseek` | `https://api.deepseek.com/anthropic` | bearer | `DEEPSEEK_API_KEY` | opus/sonnet → `deepseek-flash[1m]`, haiku → `deepseek-flash` |
+| `kimi` | `https://api.kimi.ai/coding` | `x-api-key` | `KIMI_API_KEY` | all roles → `k3-256k` |
+| `zai` | `https://api.z.ai/api/anthropic` | bearer | `ZAI_API_KEY` | opus/sonnet → `glm-5.3[1m]`, haiku → `glm-5.3-flash[1m]` |
 
 Preset sections can override any built-in default, e.g.
 `"providers": {"deepseek": {"models": {"*": "deepseek-v4-pro"}}}`. While a

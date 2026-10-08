@@ -41,8 +41,34 @@ PRESETS = {
         "hijack_hosts": DEFAULT_HIJACK_HOSTS,
         "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
     },
+    "kimi": {
+        "base_url": "https://api.kimi.ai/coding",
+        "env_key": "KIMI_API_KEY",
+        "auth": "x-api-key",
+        "models": {
+            "claude-opus-5-5": "k3-256k",
+            "claude-sonnet-5-5": "k3-256k",
+            "claude-haiku-5-5": "k3-256k",
+            "*": "k3-256k",
+        },
+        "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+        "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+    },
+    "zai": {
+        "base_url": "https://api.z.ai/api/anthropic",
+        "env_key": "ZAI_API_KEY",
+        "auth": "bearer",
+        "models": {
+            "claude-opus-5-5": "glm-5.3[1m]",
+            "claude-sonnet-5-5": "glm-5.3[1m]",
+            "claude-haiku-5-5": "glm-5.3-flash[1m]",
+            "*": "glm-5.3[1m]",
+        },
+        "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+        "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+    },
 }
-PRESET_NAMES = set(PRESETS) | {"kimi", "zai"}
+PRESET_NAMES = set(PRESETS)
 PLACEHOLDER = "FILL_THIS_IF_USING_CUSTOM_PRESET"
 
 def log(*a):

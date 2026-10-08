@@ -91,7 +91,8 @@ rkey=$(sed -n 2p <<<"$resolved")
 no_telemetry=$(sed -n 3p <<<"$resolved")
 if [[ -z "$rkey" ]]; then
   echo "unii-router: no API key resolved for provider '${rprovider:-deepseek}'" >&2
-  echo "  set DEEPSEEK_API_KEY, or custom.api_key / custom.env_key in $cfg_path" >&2
+  echo "  set the key env var for that preset (e.g. DEEPSEEK_API_KEY / KIMI_API_KEY / ZAI_API_KEY)," >&2
+  echo "  or set api_key / env_key for it in $cfg_path" >&2
   exit 2
 fi
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-$rkey}"
