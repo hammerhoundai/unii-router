@@ -256,7 +256,12 @@ def resolve_provider(cfg):
         p = build_provider(name, base, name)
         if p:
             return p
-    return build_provider("deepseek", PRESETS["deepseek"], "deepseek")
+    p = build_provider("deepseek", PRESETS["deepseek"], "deepseek")
+    if p:
+        return p
+    log("CONFIG error: no API key available for any provider "
+        "(set DEEPSEEK_API_KEY, or api_key/env_key in the config file)")
+    sys.exit(2)
 
 RAW_CONFIG = load_config()
 UPSTREAM_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
