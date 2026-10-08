@@ -35,16 +35,14 @@ sign-in, and in server mode the client stores its token under
 
 ## Install
 
-
 ```sh
 git clone https://github.com/hammerhoundai/unii-chat-router.git
 cd unii-chat-router
 ./install.sh
 ```
 
-`install.sh` checks dependencies and symlinks `unii-router`,
-`unii-router-client` into
-`~/.local/bin`.
+`install.sh` checks dependencies and symlinks `unii-router` and
+`unii-router-client` into `~/.local/bin`.
 
 ## Usage
 
