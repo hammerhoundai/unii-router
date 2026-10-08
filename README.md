@@ -55,6 +55,9 @@ cd unii-router
 unii-router            # proxy on 127.0.0.1:8899 + `unii serve` on 8788
 unii-router 9000       # server on port 9000
 
+If either local port is already occupied, the server exits before starting
+anything. If that is an existing unii-router instance, connect with `urc`.
+
 # in another terminal:
 urc                     # leak-proof, forces http://127.0.0.1:8788
 urc 9000

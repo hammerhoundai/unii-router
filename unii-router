@@ -59,6 +59,31 @@ for arg in "$@"; do
   forward+=("$arg")
 done
 
+port_is_free() {
+  python3 - "$1" "$2" <<'PY'
+import socket, sys
+
+host, port = sys.argv[1], int(sys.argv[2])
+with socket.socket() as sock:
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind((host, port))
+    except OSError:
+        raise SystemExit(1)
+PY
+}
+
+if ! port_is_free 127.0.0.1 "$proxy_port"; then
+  echo "unii-router: proxy port 127.0.0.1:$proxy_port is already in use" >&2
+  echo "  if unii-router is already running, use urc to connect to it" >&2
+  exit 2
+fi
+if ! port_is_free 127.0.0.1 "$unii_port"; then
+  echo "unii-router: server port 127.0.0.1:$unii_port is already in use" >&2
+  echo "  if its server is already running, use urc to connect to it, or choose another port" >&2
+  exit 2
+fi
+
 command -v unii >/dev/null || {
   echo "unii-router: unii is not in PATH" >&2
   exit 2

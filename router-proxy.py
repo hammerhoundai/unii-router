@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import copy, datetime, json, os, socket, ssl, sys, threading, traceback
+import copy, datetime, errno, json, os, socket, ssl, sys, threading, traceback
 from urllib.parse import urlsplit
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -602,9 +602,16 @@ def handle(conn, addr):
         try: conn.close()
         except Exception: pass
 
-s = socket.socket()
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(LISTEN)
+try:
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(LISTEN)
+except OSError as e:
+    if e.errno == errno.EADDRINUSE:
+        log(f"proxy port {LISTEN[0]}:{LISTEN[1]} is already in use; "
+            "if unii-router is already running, use urc to connect to it")
+        raise SystemExit(2)
+    raise
 s.listen(128)
 default_port = (PROVIDER["scheme"] == "https" and PROVIDER["port"] == 443) or \
                (PROVIDER["scheme"] == "http" and PROVIDER["port"] == 80)
