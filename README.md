@@ -1,4 +1,4 @@
-# unii-chat-router
+# unii-router
 
 Run [UniiChat](https://uniichat.com) with its model traffic routed to
 any Anthropic-compatible provider — with your own API key — instead of
@@ -35,7 +35,7 @@ sign-in, and in server mode the client stores its token under
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/hammerhoundai/unii-chat-router/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/hammerhoundai/unii-router/master/install.sh | sh
 ```
 
 This clones the repo to `~/.local/share/unii-chat-router`, checks its
@@ -44,7 +44,7 @@ dependencies, and symlinks both commands into `~/.local/bin`.
 To install from an existing checkout:
 
 ```sh
-git clone https://github.com/hammerhoundai/unii-chat-router.git
+git clone https://github.com/hammerhoundai/unii-router.git
 cd unii-chat-router
 ./install.sh
 ```
