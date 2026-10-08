@@ -33,16 +33,8 @@ Sign-in is Unii's own client flow and is unchanged. The router never handles
 sign-in, and in server mode the client stores its token under
 `~/.unii/<host:port>/` and does not prompt again.
 
-## Requirements
-
-- Linux (optionally macOS; the MITM proxy is plain Python)
-- `python3` with the `cryptography` package
-- `unii` in `PATH` (https://uniichat.com/install.sh)
-- an API key for your chosen provider: `DEEPSEEK_API_KEY` for the built-in
-  DeepSeek preset, or any Anthropic-compatible endpoint + key via the custom
-  preset (see [Providers and presets](#providers-and-presets))
-
 ## Install
+
 
 ```sh
 git clone https://github.com/hammerhoundai/unii-chat-router.git
@@ -50,19 +42,19 @@ cd unii-chat-router
 ./install.sh
 ```
 
-`install.sh` checks dependencies and symlinks `unii-chat-router`,
-`unii-chat-router-client` (plus legacy `unii-deepseek` aliases) into
+`install.sh` checks dependencies and symlinks `unii-router`,
+`unii-router-client` (plus legacy `unii-deepseek` aliases) into
 `~/.local/bin`.
 
 ## Usage
 
 ```sh
-unii-chat-router            # proxy on 127.0.0.1:8899 + `unii serve` on 8788
-unii-chat-router 9000       # server on port 9000
+unii-router            # proxy on 127.0.0.1:8899 + `unii serve` on 8788
+unii-router 9000       # server on port 9000
 
 # in another terminal — either:
-unii-chat-router-client     # leak-proof, forces http://127.0.0.1:8788
-unii-chat-router-client 9000
+unii-router-client     # leak-proof, forces http://127.0.0.1:8788
+unii-router-client 9000
 # or plain unii with UNII_URL set:
 UNII_URL=http://127.0.0.1:8788 unii
 ```
@@ -207,13 +199,23 @@ router warns and falls back to the deepseek preset. Prefer `env_key` over
 logs. The deprecated flat layout (`"provider": …` with top-level sections)
 still works but logs a rename warning.
 
+## Requirements
+
+- Linux (optionally macOS; the MITM proxy is plain Python)
+- `python3` with the `cryptography` package
+- `unii` in `PATH` (https://uniichat.com/install.sh)
+- an API key for your chosen provider: `DEEPSEEK_API_KEY` for the built-in
+  DeepSeek preset, or any Anthropic-compatible endpoint + key via the custom
+  preset (see [Providers and presets](#providers-and-presets))
+
+
 ## Optional network guard
 
 `landlock-exec.py` applies Linux Landlock's deny-by-default TCP-connect policy
 to a process tree (inherited by all children; UDP/DNS not covered):
 
 ```sh
-LANDLOCK_ALLOW_CONNECT=8788,8899 ./landlock-exec.py -- unii-chat-router
+LANDLOCK_ALLOW_CONNECT=8788,8899 ./landlock-exec.py -- unii-router
 ```
 
 It is intentionally not wired into the default launcher, because it would also

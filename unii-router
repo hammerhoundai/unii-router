@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# unii-chat-router: run UniiChat with its model traffic routed to DeepSeek.
+# unii-router: run UniiChat with its model traffic routed to DeepSeek.
 #
-# Server:  unii-chat-router [PORT] [extra unii serve arguments]
+# Server:  unii-router [PORT] [extra unii serve arguments]
 #          starts the local rewrite proxy (127.0.0.1:8899) and `unii serve`
 #          (127.0.0.1:8788 by default).
 #
-# Client:  unii-chat-router-client [PORT]
-#          (or: unii-chat-router client [PORT])
+# Client:  unii-router-client [PORT]
+#          (or: unii-router client [PORT])
 #          leak-proof wrapper: can only ever talk to the local server.
 
 set -euo pipefail
@@ -20,7 +20,7 @@ unii_port=${UNII_PORT:-8788}
 
 mode=serve
 case "$arg0" in
-  unii-chat-router-client|unii-deepseek-client) mode=client ;;
+  unii-router-client|unii-chat-router-client|unii-deepseek-client) mode=client ;;
 esac
 if [[ $mode == serve && ${1:-} == client ]]; then
   shift
@@ -35,8 +35,8 @@ if [[ $mode == client ]]; then
       continue
     fi
     if [[ "$arg" =~ ^https?:// && "$arg" != http://127.0.0.1:* && "$arg" != http://localhost:* ]]; then
-      echo "unii-chat-router client: refusing non-local URL: $arg" >&2
-      echo "this client can only talk to the local unii-chat-router server" >&2
+      echo "unii-router client: refusing non-local URL: $arg" >&2
+      echo "this client can only talk to the local unii-router server" >&2
       exit 2
     fi
     forward+=("$arg")
@@ -45,13 +45,13 @@ if [[ $mode == client ]]; then
   export UNII_URL="http://127.0.0.1:$unii_port"
   unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
   command -v unii >/dev/null || {
-    echo "unii-chat-router client: unii is not in PATH" >&2
+    echo "unii-router client: unii is not in PATH" >&2
     exit 2
   }
   exec unii "${forward[@]}"
 fi
 
-# Server mode: `unii-chat-router [port]`. `serve` as the first argument is
+# Server mode: `unii-router [port]`. `serve` as the first argument is
 # accepted but not duplicated.
 forward=()
 for arg in "$@"; do
@@ -65,11 +65,11 @@ for arg in "$@"; do
 done
 
 command -v unii >/dev/null || {
-  echo "unii-chat-router: unii is not in PATH" >&2
+  echo "unii-router: unii is not in PATH" >&2
   exit 2
 }
 [[ -f "$proxy" ]] || {
-  echo "unii-chat-router: proxy not found: $proxy" >&2
+  echo "unii-router: proxy not found: $proxy" >&2
   exit 2
 }
 
@@ -89,7 +89,7 @@ resolved=$(UNII_CHAT_ROUTER_CONFIG="$cfg_path" python3 "$proxy" --resolve-key)
 rprovider=$(sed -n 1p <<<"$resolved")
 rkey=$(sed -n 2p <<<"$resolved")
 if [[ -z "$rkey" ]]; then
-  echo "unii-chat-router: no API key resolved for provider '${rprovider:-deepseek}'" >&2
+  echo "unii-router: no API key resolved for provider '${rprovider:-deepseek}'" >&2
   echo "  set DEEPSEEK_API_KEY, or custom.api_key / custom.env_key in $cfg_path" >&2
   exit 2
 fi
@@ -117,7 +117,7 @@ proxy_pid=$!
 
 sleep 0.25
 if ! kill -0 "$proxy_pid" 2>/dev/null; then
-  echo "unii-chat-router: proxy exited before Unii started" >&2
+  echo "unii-router: proxy exited before Unii started" >&2
   exit 1
 fi
 

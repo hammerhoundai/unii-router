@@ -13,7 +13,7 @@ command -v unii >/dev/null || {
 }
 
 mkdir -p "$HOME/.local/bin"
-for name in unii-chat-router unii-chat-router-client unii-deepseek unii-deepseek-client; do
-  ln -sfn "$PWD/unii-chat-router" "$HOME/.local/bin/$name"
+for name in unii-router unii-router-client unii-deepseek unii-deepseek-client; do
+  ln -sfn "$PWD/unii-router" "$HOME/.local/bin/$name"
 done
 echo "installed: $(ls -d "$HOME"/.local/bin/unii-chat-router*)"
