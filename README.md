@@ -25,7 +25,7 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
 - Unii sanitizes the environment it gives shell-tool children (verified: they
   see no `HTTPS_PROXY` and connect directly), so the proxy only ever sees
   Unii's own server-side calls.
-- The optional `unii-chat-router-client` wrapper force-sets `UNII_URL` to the
+- The optional `unii-router-client` wrapper force-sets `UNII_URL` to the
   local server, strips proxy variables, and refuses non-local URL arguments —
   strace-verified to connect only to `127.0.0.1`.
 
