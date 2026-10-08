@@ -39,10 +39,11 @@ command -v unii >/dev/null || {
 }
 
 mkdir -p "$HOME/.local/bin"
-for name in unii-router unii-router-client; do
+for name in unii-router urc; do
     ln -sfn "$REPO_DIR/unii-router" "$HOME/.local/bin/$name"
 done
-echo "installed into $HOME/.local/bin: unii-router unii-router-client (repo: $REPO_DIR)"
+rm -f "$HOME/.local/bin/unii-router-client"
+echo "installed into $HOME/.local/bin: unii-router urc (repo: $REPO_DIR)"
 case ":$PATH:" in
     *":$HOME/.local/bin:"*) ;;
     *) echo "note: $HOME/.local/bin is not in PATH - add it to your shell config" >&2 ;;

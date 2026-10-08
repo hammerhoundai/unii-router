@@ -24,7 +24,7 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
 - Unii sanitizes the environment it gives shell-tool children (verified: they
   see no `HTTPS_PROXY` and connect directly), so the proxy only ever sees
   Unii's own server-side calls.
-- The optional `unii-router-client` wrapper force-sets `UNII_URL` to the
+- The optional `urc` wrapper force-sets `UNII_URL` to the
   local server, strips proxy variables, and refuses non-local URL arguments —
   strace-verified to connect only to `127.0.0.1`.
 
@@ -55,9 +55,9 @@ cd unii-router
 unii-router            # proxy on 127.0.0.1:8899 + `unii serve` on 8788
 unii-router 9000       # server on port 9000
 
-# in another terminal — either:
-unii-router-client     # leak-proof, forces http://127.0.0.1:8788
-unii-router-client 9000
+# in another terminal:
+urc                     # leak-proof, forces http://127.0.0.1:8788
+urc 9000
 # or plain unii with UNII_URL set:
 UNII_URL=http://127.0.0.1:8788 unii
 ```

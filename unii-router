@@ -5,8 +5,7 @@
 #          starts the local rewrite proxy (127.0.0.1:8899) and `unii serve`
 #          (127.0.0.1:8788 by default).
 #
-# Client:  unii-router-client [PORT]
-#          (or: unii-router client [PORT])
+# Client:  urc [PORT]
 #          leak-proof wrapper: can only ever talk to the local server.
 
 set -euo pipefail
@@ -20,12 +19,8 @@ unii_port=${UNII_PORT:-8788}
 
 mode=serve
 case "$arg0" in
-  unii-router-client) mode=client ;;
+  urc) mode=client ;;
 esac
-if [[ $mode == serve && ${1:-} == client ]]; then
-  shift
-  mode=client
-fi
 
 if [[ $mode == client ]]; then
   forward=()
@@ -35,7 +30,7 @@ if [[ $mode == client ]]; then
       continue
     fi
     if [[ "$arg" =~ ^https?:// && "$arg" != http://127.0.0.1:* && "$arg" != http://localhost:* ]]; then
-      echo "unii-router client: refusing non-local URL: $arg" >&2
+      echo "urc: refusing non-local URL: $arg" >&2
       echo "this client can only talk to the local unii-router server" >&2
       exit 2
     fi
@@ -45,7 +40,7 @@ if [[ $mode == client ]]; then
   export UNII_URL="http://127.0.0.1:$unii_port"
   unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
   command -v unii >/dev/null || {
-    echo "unii-router client: unii is not in PATH" >&2
+    echo "urc: unii is not in PATH" >&2
     exit 2
   }
   exec unii "${forward[@]}"
