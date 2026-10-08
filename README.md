@@ -2,9 +2,9 @@
 
 Run [UniiChat](https://uniichat.com) with its model traffic routed to
 any Anthropic-compatible provider — with your own API key — instead of
-Anthropic. Ships with a [DeepSeek](https://api-docs.deepseek.com/) preset out
-of the box; bring any other Anthropic-flavored endpoint (Kimi, Z.ai,
-OpenRouter, a local shim) through the custom preset.
+Anthropic. Ships with [DeepSeek](https://api-docs.deepseek.com/), Kimi, and
+Z.ai presets; bring any other Anthropic-flavored endpoint (OpenRouter, a local
+shim, or another vendor) through the custom preset.
 
 Unii's server hardcodes Anthropic's endpoint, so this package runs a local MITM
 proxy that intercepts `api.anthropic.com` and rewrites requests to your
@@ -15,10 +15,9 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
 
 - **Intercepts** `api.anthropic.com`, maps Claude model IDs to your
   provider's models, rewrites tool versions your provider doesn't accept, and
-  swaps auth headers to match. All of it is per-provider: the built-in
-  DeepSeek preset maps `claude-*` → `deepseek-flash` and accepts Bearer
-  auth; custom providers configure their own via `models`, `auth`, and
-  `web_search_tool`.
+  swaps auth headers to match. All of it is per-provider: built-in presets
+  configure DeepSeek, Kimi, and Z.ai; custom providers configure their own via
+  `models`, `auth`, and `web_search_tool`.
 - **Blocks** `api.openai.com` (configurable via `BLOCK_HOSTS`) with 403.
 - **Blind-tunnels** every other host unchanged — no decryption, no
   interference. Non-model networking keeps working.
@@ -160,22 +159,22 @@ when you want a different provider):
 }
 ```
 
-To use a different provider, set `"active_provider": "custom"` and fill the
-custom section, e.g. for Kimi:
+To use a provider without a built-in preset, set
+`"active_provider": "custom"` and fill the custom section:
 
 ```json
 {
   "active_provider": "custom",
   "providers": {
     "custom": {
-      "base_url": "https://api.moonshot.ai/anthropic",
-      "env_key": "MOONSHOT_API_KEY",
+      "base_url": "https://anthropic.example.com",
+      "env_key": "EXAMPLE_PROVIDER_API_KEY",
       "auth": "bearer",
       "models": {
-        "claude-opus-5-5": "kimi-k2",
-        "claude-sonnet-5-5": "kimi-k2",
-        "claude-haiku-5-5": "kimi-turbo",
-        "*": "kimi-k2"
+        "claude-opus-5-5": "example-large",
+        "claude-sonnet-5-5": "example-large",
+        "claude-haiku-5-5": "example-small",
+        "*": "example-large"
       },
       "hijack_hosts": ["api.anthropic.com"],
       "web_search_tool": "20260209"
@@ -216,9 +215,10 @@ still works but logs a rename warning.
 - Linux (optionally macOS; the MITM proxy is plain Python)
 - `python3` with the `cryptography` package
 - `unii` in `PATH` (https://uniichat.com/install.sh)
-- an API key for your chosen provider: `DEEPSEEK_API_KEY` for the built-in
-  DeepSeek preset, or any Anthropic-compatible endpoint + key via the custom
-  preset (see [Providers and presets](#providers-and-presets))
+- an API key for your chosen provider: `DEEPSEEK_API_KEY`, `KIMI_API_KEY`, or
+  `ZAI_API_KEY` for the built-in presets, or any Anthropic-compatible endpoint
+  + key via the custom preset (see
+  [Providers and presets](#providers-and-presets))
 
 
 ## Optional network guard
