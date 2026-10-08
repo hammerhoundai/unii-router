@@ -278,13 +278,11 @@ restrict network access of Unii's shell tools.
 
 ## Limitations
 
-- Client cancellation is not propagated to the upstream provider request.
 - Unii versions may change endpoints/tools at any time; tested against
   Unii 1.0.136/1.0.137.
 - Shell tools inside Unii agents can still reach the internet directly (that
   is a property of Unii, not this router); use the Landlock guard or a network
   namespace if you need to constrain them.
-- Single process, no daemon/systemd integration.
 
 ## License
 
