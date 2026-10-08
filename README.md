@@ -1,19 +1,24 @@
 # unii-chat-router
 
 Run [UniiChat](https://uniichat.com) with its model traffic routed to
-[DeepSeek](https://api-docs.deepseek.com/) instead of Anthropic, using your own
-`DEEPSEEK_API_KEY`.
+any Anthropic-compatible provider — with your own API key — instead of
+Anthropic. Ships with a [DeepSeek](https://api-docs.deepseek.com/) preset out
+of the box; bring any other Anthropic-flavored endpoint (Kimi, Z.ai,
+OpenRouter, a local shim) through the custom preset.
 
 Unii's server hardcodes Anthropic's endpoint, so this package runs a local MITM
-proxy that intercepts `api.anthropic.com` and rewrites requests to DeepSeek's
-Anthropic-compatible API (`/anthropic/v1/messages`).
+proxy that intercepts `api.anthropic.com` and rewrites requests to your
+provider's Anthropic-compatible endpoint (e.g. DeepSeek's
+`/anthropic/v1/messages`).
 
 ## What it does
 
-- **Intercepts** `api.anthropic.com` (configurable via `HIJACK_HOSTS`), maps
-  Claude model IDs to DeepSeek models, rewrites Unii's
-  `web_search_20260318` tool to DeepSeek's accepted `web_search_20260209`,
-  and swaps `x-api-key` auth for DeepSeek Bearer auth.
+- **Intercepts** `api.anthropic.com`, maps Claude model IDs to your
+  provider's models, rewrites tool versions your provider doesn't accept, and
+  swaps auth headers to match. All of it is per-provider: the built-in
+  DeepSeek preset maps `claude-*` → `deepseek-flash` and accepts Bearer
+  auth; custom providers configure their own via `models`, `auth`, and
+  `web_search_tool`.
 - **Blocks** `api.openai.com` (configurable via `BLOCK_HOSTS`) with 403.
 - **Blind-tunnels** every other host unchanged — no decryption, no
   interference. Non-model networking keeps working.
@@ -33,8 +38,9 @@ sign-in, and in server mode the client stores its token under
 - Linux (optionally macOS; the MITM proxy is plain Python)
 - `python3` with the `cryptography` package
 - `unii` in `PATH` (https://uniichat.com/install.sh)
-- `DEEPSEEK_API_KEY` with access to a DeepSeek Anthropic-compatible model
-  (`deepseek-flash`, `deepseek-flash[1m]`)
+- an API key for your chosen provider: `DEEPSEEK_API_KEY` for the built-in
+  DeepSeek preset, or any Anthropic-compatible endpoint + key via the custom
+  preset (see [Providers and presets](#providers-and-presets))
 
 ## Install
 
@@ -67,7 +73,7 @@ the launched process tree via `NODE_EXTRA_CA_CERTS` — nothing is installed int
 the system trust store. The last model request is written `0600` to
 `~/.local/state/unii-chat-router/last-request.json` for debugging.
 
-### Model mapping
+### Model mapping (DeepSeek preset)
 
 | Unii asks for        | Router sends          |
 |----------------------|-----------------------|
@@ -76,6 +82,8 @@ the system trust store. The last model request is written `0600` to
 | `claude-haiku-5-5`   | `deepseek-flash`      |
 
 Unmapped models pass through unchanged.
+Custom providers define their own mapping (including a `"*"` fallback) in
+`providers.custom.models`.
 
 ## Environment variables
 
@@ -213,7 +221,7 @@ restrict network access of Unii's shell tools.
 
 ## Limitations
 
-- Client cancellation is not propagated to the upstream DeepSeek request.
+- Client cancellation is not propagated to the upstream provider request.
 - Unii versions may change endpoints/tools at any time; tested against
   Unii 1.0.136/1.0.137.
 - Shell tools inside Unii agents can still reach the internet directly (that
