@@ -91,10 +91,10 @@ Unmapped models pass through unchanged.
 
 ## Configuration file
 
-Optional settings live in `~/.config/unii-chat-router/config.json` (override
-the path with `UNII_CHAT_ROUTER_CONFIG`). Anything not configured keeps its
-built-in default; unknown keys and bad values are ignored with a warning in
-the proxy log.
+Settings live in `~/.config/unii-chat-router/config.json` (override the path
+with `UNII_CHAT_ROUTER_CONFIG`). The file is auto-created with defaults on
+first start; anything not configured keeps its built-in default, and unknown
+keys or bad values are ignored with a warning in the proxy log.
 
 ```json
 {
@@ -113,7 +113,8 @@ an idle timeout.
 
 ### Providers and presets
 
-`provider` selects the upstream model provider. Built-in presets:
+`active_provider` selects the upstream model provider, and each provider has
+its own section under `providers`. Built-in preset names:
 
 - `"deepseek"` (default) — `https://api.deepseek.com/anthropic`, Bearer auth,
   key from `DEEPSEEK_API_KEY`
@@ -122,21 +123,60 @@ an idle timeout.
 - `"kimi"`, `"zai"` — reserved for future built-in presets (selecting them
   now falls back to deepseek with a warning)
 
+The auto-generated default file looks like this (`providers.deepseek` is the
+real default configuration; `providers.custom` holds placeholders to fill in
+when you want a different provider):
+
 ```json
 {
-  "provider": "custom",
-  "custom": {
-    "base_url": "https://api.moonshot.ai/anthropic",
-    "env_key": "MOONSHOT_API_KEY",
-    "auth": "bearer",
-    "models": {
-      "claude-opus-5-5": "kimi-k2",
-      "claude-sonnet-5-5": "kimi-k2",
-      "claude-haiku-5-5": "kimi-turbo",
-      "*": "kimi-k2"
+  "active_provider": "deepseek",
+  "upstream_connect_timeout": 30,
+  "tunnel_connect_timeout": 15,
+  "providers": {
+    "deepseek": {
+      "base_url": "https://api.deepseek.com/anthropic",
+      "env_key": "DEEPSEEK_API_KEY",
+      "auth": "bearer",
+      "models": {
+        "claude-opus-5-5": "deepseek-flash[1m]",
+        "claude-sonnet-5-5": "deepseek-flash[1m]",
+        "claude-haiku-5-5": "deepseek-flash"
+      },
+      "hijack_hosts": ["api.anthropic.com"],
+      "web_search_tool": "20260209"
     },
-    "hijack_hosts": ["api.anthropic.com"],
-    "web_search_tool": "20260209"
+    "custom": {
+      "base_url": "FILL_THIS_IF_USING_CUSTOM_PRESET",
+      "env_key": "FILL_THIS_IF_USING_CUSTOM_PRESET",
+      "auth": "bearer",
+      "models": {},
+      "hijack_hosts": ["api.anthropic.com"],
+      "web_search_tool": "20260209"
+    }
+  }
+}
+```
+
+To use a different provider, set `"active_provider": "custom"` and fill the
+custom section, e.g. for Kimi:
+
+```json
+{
+  "active_provider": "custom",
+  "providers": {
+    "custom": {
+      "base_url": "https://api.moonshot.ai/anthropic",
+      "env_key": "MOONSHOT_API_KEY",
+      "auth": "bearer",
+      "models": {
+        "claude-opus-5-5": "kimi-k2",
+        "claude-sonnet-5-5": "kimi-k2",
+        "claude-haiku-5-5": "kimi-turbo",
+        "*": "kimi-k2"
+      },
+      "hijack_hosts": ["api.anthropic.com"],
+      "web_search_tool": "20260209"
+    }
   }
 }
 ```
@@ -151,10 +191,13 @@ an idle timeout.
 | `hijack_hosts` | `api.anthropic.com` | CONNECT targets intercepted and rewritten |
 | `web_search_tool` | `20260209` | Rewrites Unii's `web_search_*` tool to this version; `null` disables rewriting |
 
-A preset section can also override the built-in preset's fields, e.g.
-`{"provider": "deepseek", "deepseek": {"models": {"*": "deepseek-v4-pro"}}}`.
-Prefer `env_key` over `api_key` so secrets stay out of the config file; keys
-are never printed in logs.
+Preset sections can override any built-in default, e.g.
+`"providers": {"deepseek": {"models": {"*": "deepseek-v4-pro"}}}`. While a
+section still contains `FILL_THIS_IF_USING_CUSTOM_PRESET` placeholders, the
+router warns and falls back to the deepseek preset. Prefer `env_key` over
+`api_key` so secrets stay out of the config file; keys are never printed in
+logs. The deprecated flat layout (`"provider": …` with top-level sections)
+still works but logs a rename warning.
 
 ## Optional network guard
 

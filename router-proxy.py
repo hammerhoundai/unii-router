@@ -42,12 +42,49 @@ PRESETS = {
     },
 }
 PRESET_NAMES = set(PRESETS) | {"kimi", "zai"}
+PLACEHOLDER = "FILL_THIS_IF_USING_CUSTOM_PRESET"
 
 def log(*a):
     with LOG:
         print(*a, flush=True)
 
-def load_raw_config():
+def is_placeholder(v):
+    return isinstance(v, str) and v.strip().upper() == PLACEHOLDER
+
+def default_config_template():
+    return {
+        "active_provider": "deepseek",
+        "upstream_connect_timeout": int(DEFAULT_UPSTREAM_CONNECT_TIMEOUT),
+        "tunnel_connect_timeout": int(DEFAULT_TUNNEL_CONNECT_TIMEOUT),
+        "providers": {
+            "deepseek": dict(PRESETS["deepseek"]),
+            "custom": {
+                "base_url": PLACEHOLDER,
+                "env_key": PLACEHOLDER,
+                "auth": "bearer",
+                "models": {},
+                "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+                "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+            },
+        },
+    }
+
+def write_default_config_if_missing():
+    if os.path.exists(CONFIG_PATH):
+        return
+    try:
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        with open(CONFIG_PATH, "x", encoding="utf-8") as f:
+            json.dump(default_config_template(), f, indent=2)
+            f.write("\n")
+        os.chmod(CONFIG_PATH, 0o600)
+        log(f"CONFIG: created default config at {CONFIG_PATH} "
+            f"(fill providers.custom to use a different provider)")
+    except OSError as e:
+        log(f"CONFIG warning: could not create default config at {CONFIG_PATH}: {e!r}")
+
+def load_config():
+    write_default_config_if_missing()
     try:
         with open(CONFIG_PATH, "rb") as f:
             cfg = json.load(f)
@@ -121,39 +158,69 @@ def build_provider(name, base, origin):
     }
 
 def resolve_provider(cfg):
-    whitelist = {"provider", "custom", "upstream_connect_timeout", "tunnel_connect_timeout"} | PRESET_NAMES
+    whitelist = {"active_provider", "provider", "providers", "custom", "deepseek",
+                 "upstream_connect_timeout", "tunnel_connect_timeout"} | PRESET_NAMES
     unknown = sorted(k for k in cfg if k not in whitelist)
     if unknown:
         log("CONFIG warning: ignoring unknown keys: " + ", ".join(unknown))
-    name = cfg.get("provider", "deepseek")
+    providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+    if "provider" in cfg:
+        log("CONFIG warning: 'provider' is deprecated; rename it to 'active_provider'")
+    name = cfg.get("active_provider", cfg.get("provider", "deepseek"))
     if not isinstance(name, str) or not name:
         log(f"CONFIG warning: ignoring provider={name!r}")
         name = "deepseek"
+    if is_placeholder(name):
+        log("CONFIG warning: active_provider is a placeholder; using the deepseek preset")
+        name = "deepseek"
+
+    def section(pname):
+        """User section for a provider: providers.<name>, or deprecated top-level <name>."""
+        if pname in providers and isinstance(providers[pname], dict):
+            return providers[pname], None
+        if pname in cfg and isinstance(cfg[pname], dict):
+            return cfg[pname], "deprecated: move it under 'providers'"
+        return None, None
+
+    def configured(section_dict):
+        """False while a section still carries template placeholder values."""
+        return not any(is_placeholder(v) for v in section_dict.values())
+
     if name == "custom":
-        c = cfg.get("custom")
+        c, dep = section("custom")
         if isinstance(c, dict) and c:
-            p = build_provider("custom", c, "custom")
-            if p:
-                return p
+            if dep:
+                log(f"CONFIG warning: top-level '{'custom'}' section is {dep}")
+            if not configured(c):
+                log("CONFIG warning: custom provider still contains placeholder values; "
+                    "fill in providers.custom to activate it")
+            else:
+                p = build_provider("custom", c, "custom")
+                if p:
+                    return p
         else:
             log("CONFIG warning: provider=custom but the custom object is missing or empty")
         log("CONFIG warning: using the built-in deepseek preset instead")
         name = "deepseek"
-    elif name not in PRESET_NAMES:
-        log(f"CONFIG warning: unknown provider {name!r}; using the built-in deepseek preset")
-        name = "deepseek"
-    elif name not in PRESETS:
+    elif name in PRESET_NAMES and name not in PRESETS:
         log(f"CONFIG warning: provider {name!r} is reserved but not available in this version; "
             f"using the built-in deepseek preset")
         name = "deepseek"
-    overrides = cfg.get(name) if isinstance(cfg.get(name), dict) else {}
-    base = {**PRESETS[name], **overrides}
-    p = build_provider(name, base, name)
-    if p:
-        return p
+    elif name not in PRESET_NAMES:
+        log(f"CONFIG warning: unknown provider {name!r}; using the built-in deepseek preset")
+        name = "deepseek"
+    if name in PRESETS:
+        overrides, dep = section(name)
+        if dep:
+            log(f"CONFIG warning: top-level '{name}' section is {dep}")
+        overrides = overrides or {}
+        base = {**PRESETS[name], **overrides}
+        p = build_provider(name, base, name)
+        if p:
+            return p
     return build_provider("deepseek", PRESETS["deepseek"], "deepseek")
 
-RAW_CONFIG = load_raw_config()
+RAW_CONFIG = load_config()
 UPSTREAM_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
 TUNNEL_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "tunnel_connect_timeout", DEFAULT_TUNNEL_CONNECT_TIMEOUT)
 PROVIDER = resolve_provider(RAW_CONFIG)
