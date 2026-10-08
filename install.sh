@@ -9,8 +9,8 @@ REPO_URL="https://github.com/hammerhoundai/unii-chat-router.git"
 REPO_DIR="${UNII_CHAT_ROUTER_INSTALL_DIR:-$HOME/.local/share/unii-chat-router}"
 
 # Prefer a checkout when the script runs next to the tool.
-script_dir=$(dirname "$0" 2>/dev/null || echo ".")
-if [ -f "$script_dir/unii-router" ]; then
+script_dir=$(cd "$(dirname "$0")" 2>/dev/null && pwd) || script_dir=""
+if [ -n "$script_dir" ] && [ -f "$script_dir/unii-router" ] && [ -f "$script_dir/router-proxy.py" ]; then
     REPO_DIR="$script_dir"
 elif [ ! -f "$REPO_DIR/unii-router" ]; then
     command -v git >/dev/null || {
