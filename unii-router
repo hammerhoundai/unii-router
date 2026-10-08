@@ -43,7 +43,15 @@ if [[ $mode == client ]]; then
     echo "urc: unii is not in PATH" >&2
     exit 2
   }
-  exec unii "${forward[@]}"
+  [[ -f "$here/urc-supervisor.py" ]] || {
+    echo "urc: supervisor not found: $here/urc-supervisor.py" >&2
+    exit 2
+  }
+  state=${XDG_STATE_HOME:-$HOME/.local/state}/unii-chat-router
+  export URC_STATE_DIR="$state"
+  export URC_SERVER_LAUNCHER="$self"
+  python3 "$here/urc-supervisor.py" "$unii_port" "${forward[@]}"
+  exit $?
 fi
 
 # Server mode: `unii-router [port]`. `serve` as the first argument is
@@ -127,9 +135,18 @@ export OPT_SITE="${OPT_SITE:-http://127.0.0.1:$unii_port}"
 
 cleanup() {
   trap - EXIT INT TERM
+  if [[ -n "${autostop_pid:-}" ]] && kill -0 "$autostop_pid" 2>/dev/null; then
+    kill "$autostop_pid" 2>/dev/null || true
+  fi
+  if [[ -n "${unii_pid:-}" ]] && kill -0 "$unii_pid" 2>/dev/null; then
+    kill "$unii_pid" 2>/dev/null || true
+  fi
   if [[ -n "${proxy_pid:-}" ]] && kill -0 "$proxy_pid" 2>/dev/null; then
     kill "$proxy_pid" 2>/dev/null || true
     wait "$proxy_pid" 2>/dev/null || true
+  fi
+  if [[ -n "${unii_pid:-}" ]]; then
+    wait "$unii_pid" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -147,6 +164,11 @@ fi
 
 unii serve "${forward[@]}" &
 unii_pid=$!
+autostop_pid=
+if [[ -n "${URC_AUTO_STOP_LOCK:-}" ]]; then
+  python3 "$here/urc-autostop.py" "$URC_AUTO_STOP_LOCK" "$$" &
+  autostop_pid=$!
+fi
 set +e
 wait "$unii_pid"
 status=$?

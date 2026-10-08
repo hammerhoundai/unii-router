@@ -59,11 +59,15 @@ If either local port is already occupied, the server exits before starting
 anything. If that is an existing unii-router instance, connect with `urc`.
 
 # in another terminal:
-urc                     # leak-proof, forces http://127.0.0.1:8788
+urc                     # leak-proof; starts/stops its own server if none is running
 urc 9000
 # or plain unii with UNII_URL set:
 UNII_URL=http://127.0.0.1:8788 unii
 ```
+
+`urc` checks for a local UniiChat server first. If none is running, it starts
+the router stack, prints any sign-in link from the server log, and stops that
+stack when the client exits. A server that was already running is left alone.
 
 The first server start generates a local CA under
 `~/.local/state/unii-chat-router/pki` (mode `0700`); the CA is trusted only by
