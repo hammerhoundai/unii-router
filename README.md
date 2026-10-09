@@ -1,10 +1,12 @@
 # unii-router
 
-Run [UniiChat](https://uniichat.com) with its model traffic routed to
-any Anthropic-compatible provider — with your own API key — instead of
-Anthropic. Ships with [DeepSeek](https://api-docs.deepseek.com/), Kimi, and
-Z.ai presets; bring any other Anthropic-flavored endpoint (OpenRouter, a local
-shim, or another vendor) through the custom preset.
+A single-command runner for [UniiChat](https://uniichat.com). It owns the
+local client/server lifecycle, routes model traffic to any
+Anthropic-compatible provider with your own API key, and adds server-side
+network sandboxing for Unii's non-shell HTTP(S) traffic. Built-in presets
+include [DeepSeek](https://api-docs.deepseek.com/), Kimi, and Z.ai; bring any
+other Anthropic-flavored endpoint (OpenRouter, a local shim, or another vendor)
+through the custom preset.
 
 Unii's server hardcodes Anthropic's endpoint, so this package runs a local MITM
 proxy that intercepts `api.anthropic.com` and rewrites requests to your
@@ -13,6 +15,9 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
 
 ## What it does
 
+- **Runs Unii as one command.** `urc` starts the router and local server when
+  needed, launches the client, shares an existing stack between clients, and
+  stops an auto-started stack after the last client exits.
 - **Intercepts** `api.anthropic.com`, maps Claude model IDs to your
   provider's models, rewrites tool versions your provider doesn't accept, and
   swaps auth headers to match. All of it is per-provider: built-in presets
@@ -23,8 +28,8 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
   `"block_non_provider": true`. By default it blind-tunnels other hosts
   unchanged so non-model networking keeps working.
 - Unii sanitizes the environment it gives shell-tool children (verified: they
-  see no `HTTPS_PROXY` and connect directly), so the proxy only ever sees
-  Unii's own server-side calls.
+  see no `HTTPS_PROXY` and connect directly. The guard therefore sandboxes
+  Unii's own client/server traffic without terminal-mediated tool calls.
 - The `urc` wrapper force-sets `UNII_URL` to the local server, points
   client HTTP(S) proxies at the local router, excludes loopback with
   `NO_PROXY`, and refuses non-local URL arguments.
@@ -52,23 +57,35 @@ cd unii-router
 
 ## Usage
 
+### One command
+
 ```sh
-unii-router            # proxy on 127.0.0.1:8899 + `unii serve` on 8788
-unii-router 9000       # server on port 9000
-
-If either local port is already occupied, the server exits before starting
-anything. If that is an existing unii-router instance, connect with `urc`.
-
-# in another terminal:
-urc                     # leak-proof; starts/stops its own server if none is running
-urc 9000
-# or plain unii with UNII_URL set:
-UNII_URL=http://127.0.0.1:8788 unii
+urc                     # start client; start proxy + server first if needed
+urc 9000                # same, with the Unii server on port 9000
 ```
 
-`urc` checks for a local UniiChat server first. If none is running, it starts
-the router stack, prints any sign-in link from the server log, and stops that
-stack when the client exits. A server that was already running is left alone.
+`urc` force-sets `UNII_URL` to the matching loopback URL, checks for a local
+UniiChat server, starts the router stack if none is running, prints any
+sign-in link from the server log, and stops an auto-started stack after the
+last client exits. A server that was already running is left alone. This is
+the normal way to run UniiChat with unii-router.
+
+### Separate server and client
+
+```sh
+unii-router             # proxy on 127.0.0.1:8899 + `unii serve` on 8788
+unii-router 9000        # server on port 9000
+
+# in another terminal:
+urc                     # connect to the running local stack
+urc 9000
+```
+
+If either local port is already occupied when `unii-router` starts, it exits
+before starting anything. If the existing instance is unii-router-managed,
+connect with `urc` rather than starting another stack. Prefer `urc` over
+launching `unii` directly: the latter lacks the wrapper's local-URL and proxy
+guards.
 
 The first server start generates a local CA under
 `~/.local/state/unii-chat-router/pki` (mode `0700`); the CA is trusted only by

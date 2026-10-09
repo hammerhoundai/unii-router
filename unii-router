@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# unii-router: run UniiChat with its model traffic routed to DeepSeek.
+# unii-router: run UniiChat with lifecycle management, provider routing, and
+# local-side HTTP(S) network guarding.
 #
 # Server:  unii-router [PORT] [extra unii serve arguments]
 #          starts the local rewrite proxy (127.0.0.1:8899) and `unii serve`
