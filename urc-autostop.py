@@ -13,7 +13,15 @@ def main():
         return 2
     lock_path, process_group = sys.argv[1], int(sys.argv[2])
     with open(lock_path, "a+b") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        # Poll for the exclusive lease instead of blocking. A queued blocking
+        # LOCK_EX request would prevent new LOCK_SH clients from acquiring the
+        # same file lock until every current client exited.
+        while True:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                time.sleep(0.1)
         try:
             os.killpg(process_group, signal.SIGTERM)
         except ProcessLookupError:

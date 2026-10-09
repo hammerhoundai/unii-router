@@ -127,7 +127,7 @@ def start_server(launcher, port, state_dir, client_lock_path):
     )
 
 
-def release_and_reap(process, client_lock, state_dir):
+def release_and_reap(process, client_lock, client_lock_path):
     """Drop this client's lease, then stop the server only if it was the last."""
     if client_lock is not None:
         client_lock.close()
@@ -139,7 +139,7 @@ def release_and_reap(process, client_lock, state_dir):
     except subprocess.TimeoutExpired:
         pass
     try:
-        lock = open(state_dir / "auto-clients.lock", "a+b")
+        lock = open(client_lock_path, "a+b")
         try:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             stop_server(process)
@@ -187,12 +187,12 @@ def main():
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(state_dir, 0o700)
-        client_lock_path = state_dir / "auto-clients.lock"
+        client_lock_path = state_dir / f"auto-clients-{port}.lock"
         client_lock = open(client_lock_path, "a+b")
         try:
             os.chmod(client_lock_path, 0o600)
             fcntl.flock(client_lock.fileno(), fcntl.LOCK_SH)
-            lock_path = state_dir / "auto-start.lock"
+            lock_path = state_dir / f"auto-start-{port}.lock"
             with open(lock_path, "a+b") as lock:
                 os.chmod(lock_path, 0o600)
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
@@ -219,19 +219,19 @@ def main():
         log(str(error))
         if signin_stop is not None:
             signin_stop.set()
-        release_and_reap(process, client_lock, state_dir)
+        release_and_reap(process, client_lock, client_lock_path)
         return 2
     except Exception as error:
         log(f"unexpected startup error: {error!r}")
         if signin_stop is not None:
             signin_stop.set()
-        release_and_reap(process, client_lock, state_dir)
+            release_and_reap(process, client_lock, client_lock_path)
         return 1
 
     if terminal_signal is not None:
         if signin_stop is not None:
             signin_stop.set()
-        release_and_reap(process, client_lock, state_dir)
+            release_and_reap(process, client_lock, client_lock_path)
         return 128 + terminal_signal
 
     status = 1
@@ -262,7 +262,7 @@ def main():
                 client.wait()
         if signin_stop is not None:
             signin_stop.set()
-        release_and_reap(process, client_lock, state_dir)
+        release_and_reap(process, client_lock, client_lock_path)
 
     if status < 0:
         return 128 - status
