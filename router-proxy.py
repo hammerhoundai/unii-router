@@ -120,11 +120,11 @@ def load_config():
     except FileNotFoundError:
         return {}
     except Exception as e:
-        log(f"CONFIG warning: ignoring unreadable {CONFIG_PATH}: {e!r}")
-        return {}
+        log(f"CONFIG error: invalid config JSON in {CONFIG_PATH}: {e!r}")
+        raise SystemExit(2)
     if not isinstance(cfg, dict):
-        log(f"CONFIG warning: {CONFIG_PATH} is not a JSON object; ignoring")
-        return {}
+        log(f"CONFIG error: {CONFIG_PATH} is not a JSON object")
+        raise SystemExit(2)
     return cfg
 
 def positive_number(v):

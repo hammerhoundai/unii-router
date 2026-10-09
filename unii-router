@@ -23,6 +23,19 @@ case "$arg0" in
   urc) mode=client ;;
 esac
 
+cfg_path="${UNII_CHAT_ROUTER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unii-chat-router/config.json}"
+if [[ -f "$cfg_path" ]]; then
+  python3 - "$cfg_path" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        json.load(f)
+except Exception as e:
+    print(f"unii-router: invalid config JSON in {sys.argv[1]}: {e}", file=sys.stderr)
+    raise SystemExit(2)
+PY
+fi
+
 if [[ $mode == client ]]; then
   forward=()
   for arg in "$@"; do
@@ -48,11 +61,11 @@ if [[ $mode == client ]]; then
   export HTTPS_PROXY="$HTTP_PROXY"
   export http_proxy="$HTTP_PROXY"
   export https_proxy="$HTTP_PROXY"
-  cfg_path="${UNII_CHAT_ROUTER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unii-chat-router/config.json}"
   if [[ -f "$cfg_path" ]] && python3 - "$cfg_path" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as f:
-    exit(0 if json.load(f).get("unii_no_telemetry") is True else 1)
+    config = json.load(f)
+exit(0 if isinstance(config, dict) and config.get("unii_no_telemetry") is True else 1)
 PY
   then
     export UNII_NO_TELEMETRY="${UNII_NO_TELEMETRY:-1}"

@@ -126,6 +126,7 @@ Settings live in `~/.config/unii-chat-router/config.json` (override the path
 with `UNII_CHAT_ROUTER_CONFIG`). The file is auto-created with defaults on
 first start; anything not configured keeps its built-in default, and unknown
 keys or bad values are ignored with a warning in the proxy log.
+Malformed JSON and non-object config files are rejected at startup.
 
 ```json
 {
