@@ -27,8 +27,7 @@ DEFAULT_HIJACK_HOSTS = ["api.anthropic.com"]
 DEFAULT_UNII_NO_TELEMETRY = False
 DEFAULT_BLOCK_NON_PROVIDER = False
 
-# Built-in provider presets. `custom` is user-defined in the config file;
-# kimi/zai are reserved for future built-in presets.
+# Built-in provider presets. `custom` is user-defined in the config file.
 PRESETS = {
     "deepseek": {
         "base_url": "https://api.deepseek.com/anthropic",
@@ -64,6 +63,19 @@ PRESETS = {
             "claude-sonnet-5-5": "glm-5.3-flash",
             "claude-haiku-5-5": "glm-5.3-flash",
             "*": "glm-5.3-flash",
+        },
+        "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+        "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+    },
+    "qwen": {
+        "base_url": "https://maas.qwencloudapi.com/apps/anthropic",
+        "env_key": "QWEN_PAYG_API_KEY",
+        "auth": "bearer",
+        "models": {
+            "claude-opus-5-5": "qwen3.8-flash",
+            "claude-sonnet-5-5": "qwen3.8-flash",
+            "claude-haiku-5-5": "qwen3.8-flash",
+            "*": "qwen3.8-flash",
         },
         "hijack_hosts": DEFAULT_HIJACK_HOSTS,
         "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
