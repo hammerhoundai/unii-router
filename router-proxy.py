@@ -25,6 +25,7 @@ DEFAULT_TUNNEL_CONNECT_TIMEOUT = 15.0
 DEFAULT_WEB_SEARCH_TOOL = "20260209"
 DEFAULT_HIJACK_HOSTS = ["api.anthropic.com"]
 DEFAULT_UNII_NO_TELEMETRY = False
+DEFAULT_BLOCK_NON_PROVIDER = False
 
 # Built-in provider presets. `custom` is user-defined in the config file;
 # kimi/zai are reserved for future built-in presets.
@@ -93,6 +94,7 @@ def default_config_template():
         "upstream_connect_timeout": int(DEFAULT_UPSTREAM_CONNECT_TIMEOUT),
         "tunnel_connect_timeout": int(DEFAULT_TUNNEL_CONNECT_TIMEOUT),
         "unii_no_telemetry": DEFAULT_UNII_NO_TELEMETRY,
+        "block_non_provider": DEFAULT_BLOCK_NON_PROVIDER,
         "providers": providers,
     }
 
@@ -196,7 +198,7 @@ def build_provider(name, base, origin):
 def resolve_provider(cfg):
     whitelist = {"active_provider", "provider", "providers", "custom", "deepseek",
                  "upstream_connect_timeout", "tunnel_connect_timeout",
-                 "unii_no_telemetry"} | PRESET_NAMES
+                 "unii_no_telemetry", "block_non_provider"} | PRESET_NAMES
     unknown = sorted(k for k in cfg if k not in whitelist)
     if unknown:
         log("CONFIG warning: ignoring unknown keys: " + ", ".join(unknown))
@@ -266,6 +268,7 @@ RAW_CONFIG = load_config()
 UPSTREAM_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "upstream_connect_timeout", DEFAULT_UPSTREAM_CONNECT_TIMEOUT)
 TUNNEL_CONNECT_TIMEOUT = timeout_value(RAW_CONFIG, "tunnel_connect_timeout", DEFAULT_TUNNEL_CONNECT_TIMEOUT)
 UNII_NO_TELEMETRY = bool_value(RAW_CONFIG, "unii_no_telemetry", DEFAULT_UNII_NO_TELEMETRY)
+BLOCK_NON_PROVIDER = bool_value(RAW_CONFIG, "block_non_provider", DEFAULT_BLOCK_NON_PROVIDER)
 PROVIDER = resolve_provider(RAW_CONFIG)
 HIJACK_HOSTS = set(
     PROVIDER["hijack_hosts"]
@@ -459,7 +462,7 @@ def forward_plain(conn, method, target, headers, body_rest):
     if not host:
         conn.sendall(b"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
         return
-    if host in HIJACK_HOSTS or host in BLOCK_HOSTS:
+    if host in HIJACK_HOSTS or BLOCK_NON_PROVIDER or host in BLOCK_HOSTS:
         blocked_response(conn, f"{method} http://{host}{path}")
         return
     n = int(header(headers, "content-length") or 0)
@@ -583,7 +586,7 @@ def handle(conn, addr):
             return
         host = target.rsplit(":", 1)[0].strip("[]")
         if host not in HIJACK_HOSTS:
-            if host in BLOCK_HOSTS:
+            if BLOCK_NON_PROVIDER or host in BLOCK_HOSTS:
                 blocked_response(conn, f"CONNECT {target} (blocked host)")
             else:
                 tunnel(conn, target)

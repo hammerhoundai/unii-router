@@ -19,14 +19,15 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
   configure DeepSeek, Kimi, and Z.ai; custom providers configure their own via
   `models`, `auth`, and `web_search_tool`.
 - **Blocks** `api.openai.com` (configurable via `BLOCK_HOSTS`) with 403.
-- **Blind-tunnels** every other host unchanged — no decryption, no
-  interference. Non-model networking keeps working.
+- **Optionally blocks every non-provider host** with 403 via
+  `"block_non_provider": true`. By default it blind-tunnels other hosts
+  unchanged so non-model networking keeps working.
 - Unii sanitizes the environment it gives shell-tool children (verified: they
   see no `HTTPS_PROXY` and connect directly), so the proxy only ever sees
   Unii's own server-side calls.
-- The optional `urc` wrapper force-sets `UNII_URL` to the
-  local server, strips proxy variables, and refuses non-local URL arguments —
-  strace-verified to connect only to `127.0.0.1`.
+- The `urc` wrapper force-sets `UNII_URL` to the local server, points
+  client HTTP(S) proxies at the local router, excludes loopback with
+  `NO_PROXY`, and refuses non-local URL arguments.
 
 Sign-in is Unii's own client flow and is unchanged. The router never handles
 sign-in, and in server mode the client stores its token under
@@ -120,11 +121,14 @@ keys or bad values are ignored with a warning in the proxy log.
 |---------------------------|---------|---------|
 | `upstream_connect_timeout`| `30`    | Seconds to connect + TLS-handshake to the model provider |
 | `tunnel_connect_timeout`  | `15`    | Seconds to connect for blind-tunneled non-model hosts |
-| `unii_no_telemetry`       | `false` | `true` sets `UNII_NO_TELEMETRY=1` for the Unii server (opts out of Unii's daily update check to bend-lang.com) |
+| `unii_no_telemetry`       | `false` | `true` sets `UNII_NO_TELEMETRY=1` for Unii (opts out of its daily update check to bend-lang.com) |
+| `block_non_provider`      | `false` | `true` rejects every proxied CONNECT/HTTP target except the active provider's `hijack_hosts` |
 
 Timeouts apply only to connection setup; streaming responses are never killed
 by an idle timeout. Telemetry is Unii's own (version + OS + CPU type only);
 it is on by default and the router does not touch it unless you opt out.
+Blocking applies only to traffic submitted to the router proxy; shell-tool
+children and separately launched browsers do not inherit that proxy setting.
 
 ### Providers and presets
 
@@ -151,6 +155,7 @@ placeholders):
   "upstream_connect_timeout": 30,
   "tunnel_connect_timeout": 15,
   "unii_no_telemetry": false,
+  "block_non_provider": false,
   "providers": {
     "deepseek": {
       "base_url": "https://api.deepseek.com/anthropic",

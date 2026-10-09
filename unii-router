@@ -38,7 +38,24 @@ if [[ $mode == client ]]; then
   done
   # Force local: even a hostile/inherited UNII_URL cannot send data to uniichat.com.
   export UNII_URL="http://127.0.0.1:$unii_port"
-  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+  # Keep Unii client traffic local, but route its own non-local HTTP(S) traffic
+  # through the same proxy so no client-side network path bypasses the policy.
+  unset ALL_PROXY all_proxy
+  export NO_PROXY="localhost,127.0.0.1,::1"
+  export no_proxy="$NO_PROXY"
+  export HTTP_PROXY="http://127.0.0.1:$proxy_port"
+  export HTTPS_PROXY="$HTTP_PROXY"
+  export http_proxy="$HTTP_PROXY"
+  export https_proxy="$HTTP_PROXY"
+  cfg_path="${UNII_CHAT_ROUTER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/unii-chat-router/config.json}"
+  if [[ -f "$cfg_path" ]] && python3 - "$cfg_path" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    exit(0 if json.load(f).get("unii_no_telemetry") is True else 1)
+PY
+  then
+    export UNII_NO_TELEMETRY="${UNII_NO_TELEMETRY:-1}"
+  fi
   command -v unii >/dev/null || {
     echo "urc: unii is not in PATH" >&2
     exit 2
