@@ -80,6 +80,18 @@ PRESETS = {
         "hijack_hosts": DEFAULT_HIJACK_HOSTS,
         "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
     },
+    "mimo": {
+        "base_url": "https://api.xiaomimimo.com/anthropic",
+        "env_key": "MIMO_PAYG_API_KEY",
+        "auth": "bearer",
+        "models": {
+            "claude-opus-5-5": "mimo-v2.6-pro",
+            "claude-sonnet-5-5": "mimo-v2.6-pro",
+            "claude-haiku-5-5": "mimo-v2.6-flash",
+        },
+        "hijack_hosts": DEFAULT_HIJACK_HOSTS,
+        "web_search_tool": DEFAULT_WEB_SEARCH_TOOL,
+    },
 }
 PRESET_NAMES = set(PRESETS)
 PLACEHOLDER = "FILL_THIS_IF_USING_CUSTOM_PRESET"

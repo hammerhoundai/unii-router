@@ -4,8 +4,8 @@ A single-command runner for [UniiChat](https://uniichat.com). It owns the
 local client/server lifecycle, routes model traffic to any
 Anthropic-compatible provider with your own API key, and adds server-side
 network sandboxing for Unii's non-shell HTTP(S) traffic. Built-in presets
-include [DeepSeek](https://api-docs.deepseek.com/), Kimi, Z.ai, and Qwen; bring
-any other Anthropic-flavored endpoint (OpenRouter, a local shim, or another vendor)
+include [DeepSeek](https://api-docs.deepseek.com/), Kimi, Z.ai, Qwen, and MiMo;
+bring any other Anthropic-flavored endpoint (OpenRouter, a local shim, or another vendor)
 through the custom preset.
 
 Unii's server hardcodes Anthropic's endpoint, so this package runs a local MITM
@@ -21,7 +21,7 @@ provider's Anthropic-compatible endpoint (e.g. DeepSeek's
 - **Intercepts** `api.anthropic.com`, maps Claude model IDs to your
   provider's models, rewrites tool versions your provider doesn't accept, and
   swaps auth headers to match. All of it is per-provider: built-in presets
-  configure DeepSeek, Kimi, Z.ai, and Qwen; custom providers configure their own via
+  configure DeepSeek, Kimi, Z.ai, Qwen, and MiMo; custom providers configure their own via
   `models`, `auth`, and `web_search_tool`.
 - **Blocks** `api.openai.com` (configurable via `BLOCK_HOSTS`) with 403.
 - **Optionally blocks every non-provider host** with 403 via
@@ -112,7 +112,7 @@ Every built-in preset supplies its own defaults; see
 
 | Variable                     | Default            | Purpose |
 |------------------------------|--------------------|---------|
-| provider key variable        | `DEEPSEEK_API_KEY`, `KIMI_API_KEY`, `ZAI_API_KEY`, or `QWEN_PAYG_API_KEY` | Read when the selected preset's `env_key` names it; custom providers can name any variable |
+| provider key variable        | `DEEPSEEK_API_KEY`, `KIMI_API_KEY`, `ZAI_API_KEY`, `QWEN_PAYG_API_KEY`, or `MIMO_PAYG_API_KEY` | Read when the selected preset's `env_key` names it; custom providers can name any variable |
 | `UNII_PORT` / arg            | `8788`             | Local Unii server port |
 | `UNII_CHAT_ROUTER_PROXY_PORT`| `8899`             | Local MITM proxy port |
 | `HIJACK_HOSTS`               | `api.anthropic.com`| Intercepted hosts when config doesn't set `hijack_hosts` |
@@ -161,6 +161,9 @@ its own section under `providers`. Built-in preset names:
   key from `ZAI_API_KEY`, all roles → `glm-5.3-flash`
 - `"qwen"` — Qwen: `https://maas.qwencloudapi.com/apps/anthropic`, Bearer auth,
   key from `QWEN_PAYG_API_KEY`, all roles → `qwen3.8-flash`
+- `"mimo"` — Xiaomi MiMo: `https://api.xiaomimimo.com/anthropic`, Bearer auth,
+  key from `MIMO_PAYG_API_KEY`, opus/sonnet → `mimo-v2.6-pro`, haiku →
+  `mimo-v2.6-flash`
 - `"custom"` — your own Anthropic-compatible provider (any vendor or a local
   shim speaking the Anthropic messages API)
 
@@ -228,6 +231,18 @@ placeholders):
       "hijack_hosts": ["api.anthropic.com"],
       "web_search_tool": "20260209"
     },
+    "mimo": {
+      "base_url": "https://api.xiaomimimo.com/anthropic",
+      "env_key": "MIMO_PAYG_API_KEY",
+      "auth": "bearer",
+      "models": {
+        "claude-opus-5-5": "mimo-v2.6-pro",
+        "claude-sonnet-5-5": "mimo-v2.6-pro",
+        "claude-haiku-5-5": "mimo-v2.6-flash"
+      },
+      "hijack_hosts": ["api.anthropic.com"],
+      "web_search_tool": "20260209"
+    },
     "custom": {
       "base_url": "FILL_THIS_IF_USING_CUSTOM_PRESET",
       "env_key": "FILL_THIS_IF_USING_CUSTOM_PRESET",
@@ -283,6 +298,7 @@ be overridden in the provider's `providers.<name>` section):
 | `kimi` | `https://api.kimi.ai/coding` | `x-api-key` | `KIMI_API_KEY` | all roles → `k3-256k` |
 | `zai` | `https://api.z.ai/api/anthropic` | bearer | `ZAI_API_KEY` | all roles → `glm-5.3-flash` |
 | `qwen` | `https://maas.qwencloudapi.com/apps/anthropic` | bearer | `QWEN_PAYG_API_KEY` | all roles → `qwen3.8-flash` |
+| `mimo` | `https://api.xiaomimimo.com/anthropic` | bearer | `MIMO_PAYG_API_KEY` | opus/sonnet → `mimo-v2.6-pro`; haiku → `mimo-v2.6-flash` |
 
 Preset sections can override any built-in default, e.g.
 `"providers": {"deepseek": {"models": {"*": "deepseek-v4-pro"}}}`. While a
@@ -298,7 +314,8 @@ still works but logs a rename warning.
 - `python3` with the `cryptography` package
 - `unii` in `PATH` (https://uniichat.com/install.sh)
 - an API key for your chosen provider: `DEEPSEEK_API_KEY`, `KIMI_API_KEY`,
-  `ZAI_API_KEY`, or `QWEN_PAYG_API_KEY` for the built-in presets, or any Anthropic-compatible endpoint
+  `ZAI_API_KEY`, `QWEN_PAYG_API_KEY`, or `MIMO_PAYG_API_KEY` for the built-in
+  presets, or any Anthropic-compatible endpoint
   + key via the custom preset (see
   [Providers and presets](#providers-and-presets))
 
